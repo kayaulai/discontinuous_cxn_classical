@@ -1,0 +1,161 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+Setup:
+```{r}
+library(tidyverse)
+library(tidycollo)
+library(udpipe)
+library(data.tree)
+
+
+```
+
+Import data:
+```{r}
+setwd("P:\\1. Current research\\Discontinuous cxn\\classical")
+conllu_test = udpipe::udpipe_read_conllu("lzh_kyoto-ud-test.conllu")
+conllu_train = udpipe::udpipe_read_conllu("lzh_kyoto-ud-train.conllu")
+conllu_dev = udpipe::udpipe_read_conllu("lzh_kyoto-ud-dev.conllu")
+
+conllu_all = bind_rows(conllu_test, conllu_train, conllu_dev) %>%
+   filter(str_starts(doc_id, "KR1h0004|KR1h0001|KR1d0052|KR2e0003"))
+```
+
+
+Get combo lists:
+```{r}
+conllu_sents = conllu_all %>% group_by(doc_id, paragraph_id, sentence_id, sentence) %>% group_split
+
+conllu_sents_ids = conllu_sents %>% sapply(function(x) x$sentence_id[1])
+
+  getCombos = function(root, conllu_sent){
+    print(glue("{conllu_sent$doc_id[1]} -  {conllu_sent$paragraph_id[1]} - {conllu_sent$sentence[1]}"))
+    root_kids = as.numeric(names(root$children))
+    rootID = as.numeric(root$name)
+    sfp = conllu_sent %>%
+      filter(.data$head_token_id == rootID,
+             .data$xpos == "p,助詞,句末,*",
+             .data$token_id > rootID
+             ) %>% pull(lemma)
+    adv_conj = conllu_sent %>%
+      filter(
+        .data$head_token_id == rootID,
+        .data$token_id < rootID,
+        .data$upos %in% c("ADV"),
+        !str_ends(.data$xpos, "属格") #exclude 之
+        ) %>% pull(lemma)
+
+    list(sfp = sfp, dc = adv_conj, root = root$lemma)
+  }
+
+  comboList = lapply(conllu_sents, function(conllu_sent){
+    conllu_sent_wtree = getTreeFromConllu(conllu_sent)
+    combos = getCombos(conllu_sent_wtree$root, conllu_sent_wtree$df)
+    c(list(docID = conllu_sent$doc_id[1],
+           paragraphID = conllu_sent$paragraph_id[1],
+           sentenceID = conllu_sent$sentence_id[1],
+           sentence = conllu_sent$sentence[1]),combos)
+  })
+```
+
+From comboList, get the DF rows:
+```{r}
+library(tidyr)
+
+getRowsFromCombos = function(combos){
+  n_sfp = length(combos$sfp)
+  n_dc = length(combos$dc)
+  if(n_sfp == 0) combos$sfp = NA
+  if(n_dc == 0) combos$dc = NA
+  expand_grid(sfp = combos$sfp, dc = combos$dc) %>%
+    mutate(docID = combos$docID,
+           paragraphID = combos$paragraphID,
+           sentenceID = combos$sentenceID,
+           sentence = combos$sentence,
+           root = combos$root)
+}
+
+combosDF = lapply(comboList, getRowsFromCombos) %>% bind_rows
+```
+
+```{r}
+measures_adv_root = getMeasures(combosDF, c("dc", "root"), c("dc", "root"), doc_id = "docID")
+
+measures_adv_root_df = measures_adv_root$results
+measures_adv_root_df = measures_adv_root_df %>%
+  mutate(p_fisher_yates_1tail = case_when(
+    or > 1 ~ p_fisher_yates / 2,
+    T ~ 1 - p_fisher_yates / 2))
+```
+
+```{r}
+by = getBenjaminiYekutieli(measures_adv_root_df$p_fisher_yates_1tail, alpha = .05)
+measures_adv_root_df = measures_adv_root_df %>%
+  mutate(p_fisher_yates_reject = by$reject)
+View(measures_adv_root_df %>% filter(!is.na(root) & !is.na(dc)) %>% arrange(p_fisher_yates_1tail))
+measures_adv_root_df %>% select(root, dc, n, f_dc_not_root, f_root_not_dc, f_not_root_or_dc, or, p_fisher_yates, p_fisher_yates_1tail) %>% View
+measures_adv_root_df %>% filter(!is.na(root), !is.na(dc), p_fisher_yates_reject) %>% select(root, dc, n, f_dc_not_root, f_root_not_dc, f_not_root_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject) %>% View
+
+measures_adv_root_df %>% filter(!is.na(root), !is.na(dc), p_fisher_yates_reject, DP_norm < .99) %>% select(root, dc, n, f_dc_not_root, f_root_not_dc, f_not_root_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject, DP_norm, pmi) %>% arrange(pmi) %>% View
+  
+selected_adv_root_df = measures_adv_root_df %>% filter(!is.na(root), !is.na(dc), p_fisher_yates_reject, DP_norm < .99)
+```
+
+```{r}
+combosDF_poststep1 = combosDF %>%
+  left_join(measures_adv_root_df, by = c("dc", "root")) %>%
+  mutate(advv = case_when(
+    p_fisher_yates_reject & !is.na(dc) ~ paste(dc, root, sep = "_"),
+    T ~ root))
+```
+
+
+```{r}
+measures_advv_sfp = getMeasures(combosDF_poststep1, c("advv", "sfp"), c("advv", "sfp"), doc_id = "docID")
+
+measures_advv_sfp_df = measures_advv_sfp$results
+
+```
+
+```{r}
+measures_advv_sfp_df = measures_advv_sfp_df %>%
+  mutate(p_fisher_yates_1tail = case_when(
+    or > 1 ~ p_fisher_yates / 2,
+    T ~ 1 - p_fisher_yates / 2))
+
+by = getBenjaminiYekutieli(measures_advv_sfp_df$p_fisher_yates_1tail, alpha = .2)
+measures_advv_sfp_df = measures_advv_sfp_df %>%
+  mutate(p_fisher_yates_reject = by$reject)
+View(measures_advv_sfp_df %>% filter(!is.na(sfp) & !is.na(advv)) %>% arrange(p_fisher_yates_1tail))
+measures_advv_sfp_df %>% select(sfp, advv, n, f_advv_not_sfp, f_sfp_not_advv, f_not_sfp_or_advv, or, p_fisher_yates, p_fisher_yates_1tail) %>% View
+measures_advv_sfp_df %>% filter(!is.na(sfp), !is.na(advv), p_fisher_yates_reject) %>% select(sfp, advv, n, f_advv_not_sfp, f_sfp_not_advv, f_not_sfp_or_advv, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject) %>% View
+
+measures_advv_sfp_df %>% filter(!is.na(sfp), !is.na(advv), p_fisher_yates_reject, DP_norm < .99) %>% select(sfp, advv, n, f_advv_not_sfp, f_sfp_not_advv, f_not_sfp_or_advv, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject, DP_norm, pmi) %>% arrange(pmi) %>% View
+  
+selected_advv_sfp_df = measures_advv_sfp_df %>% filter(!is.na(sfp), !is.na(advv), p_fisher_yates_reject, DP_norm < .99)
+```
+
+```{r}
+selected_advv_sfp_df = selected_advv_sfp_df %>%
+  mutate(
+    dc = case_when(str_detect(advv, "_") ~ sapply(strsplit(advv, "_"), function(x) x[1]),
+                   T ~ ""),
+    root = case_when(str_detect(advv, "_") ~ sapply(strsplit(selected_advv_sfp_df$advv, "_"), function(x) x[length(x)]),
+                    T ~ "")
+  ) %>%
+  mutate(
+    dc = na_if(dc, ""),
+    root = na_if(root, "")
+  )
+final_pairs = selected_advv_sfp_df %>%
+  filter(!is.na(dc) & !is.na(sfp)) %>%
+  group_by(dc, sfp) %>%
+  count
+write_csv(final_pairs, "final_pairs_.2.csv")
+```
+
