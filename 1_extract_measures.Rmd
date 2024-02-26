@@ -5,7 +5,10 @@ editor_options:
   chunk_output_type: inline
 ---
 
+# Data import
+
 Setup:
+
 ```{r}
 library(tidyverse)
 library(tidycollo)
@@ -15,7 +18,8 @@ library(data.tree)
 
 ```
 
-Import data:
+We'll combine all the data together, but exclude all but the four texts we're focusing on:
+
 ```{r}
 setwd("P:\\1. Current research\\Discontinuous cxn\\classical")
 conllu_test = udpipe::udpipe_read_conllu("lzh_kyoto-ud-test.conllu")
@@ -26,8 +30,10 @@ conllu_all = bind_rows(conllu_test, conllu_train, conllu_dev) %>%
    filter(str_starts(doc_id, "KR1h0004|KR1h0001|KR1d0052|KR2e0003"))
 ```
 
+# Getting a DF of combinations
 
-Get combo lists:
+The `comboList` list is a list where each of the entries corresponds to a sentence, which may have no FPs or adverbs, or one or multiple. ('dc' means 'adverb' in my code.)
+
 ```{r}
 conllu_sents = conllu_all %>% group_by(doc_id, paragraph_id, sentence_id, sentence) %>% group_split
 
@@ -62,7 +68,8 @@ conllu_sents_ids = conllu_sents %>% sapply(function(x) x$sentence_id[1])
   })
 ```
 
-From comboList, get the DF rows:
+From comboList, we will now get the get the DF rows. The function `expand_grid()` allows us to get combinations of the SFP/adverb whenever there is more than one of either.
+
 ```{r}
 library(tidyr)
 c
@@ -81,12 +88,18 @@ getRowsFromCombos = function(combos){
 combosDF = lapply(comboList, getRowsFromCombos) %>% bind_rows
 ```
 
+# Evaluating measures and extracting candidates
+
+Now we can get the measures from the `combosDF`:
+
 ```{r}
 measures = getMeasures(combosDF, c("sfp", "dc"), c("sfp", "dc"), doc_id = "docID")
 
 measures_df = measures$results
 
 ```
+
+Let's apply Benjamini-Yekutieli on the one-sided Fisher-Yates tests:
 
 ```{r}
 # measures_df = measures_df %>%
@@ -102,16 +115,41 @@ measures_df = measures_df %>%
 # measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject) %>% select(sfp, dc, n, f_dc_not_sfp, f_sfp_not_dc, f_not_sfp_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject) %>% View
 # 
 # measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject, DP_norm < .99) %>% select(sfp, dc, n, f_dc_not_sfp, f_sfp_not_dc, f_not_sfp_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject, DP_norm, pmi) %>% arrange(pmi) %>% View
+```
 
+The last step is to extract the results using the two filters:
+
+```{r}
 selected_df = measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject, DP_norm < .99)
 View(selected_df)
 ```
 
-Path tracing:
+# Exploring the results
 
 ```{r}
-write_excel_csv(selected_df %>% select(dc, sfp, n, pmi), "selected_df.csv")
-getwd()
-
+# write_excel_csv(selected_df %>% select(dc, sfp, n, pmi), "selected_df.csv")
+selected_df_coded = read_csv("C:\\Users\\kayau\\Documents\\GitHub\\discontinuous_cxn_classical\\selected_df.csv")
+selected_df_coded = selected_df_coded %>%
+  mutate(full = case_when(
+    is.na(full) ~ paste0(dc, "...", sfp),
+    T ~ full)
+  ) %>%
+  group_by(full, cat) %>%
+  summarise(dc = paste(dc, collapse = "+"),
+            sfp = paste(sfp, collapse = "+"), 
+            n = min(n)) %>%
+  ungroup()
+selected_df_coded %>%
+  mutate(cat = recode(cat, rhet_q = "q")) %>%
+  group_by(cat) %>%
+  summarise(n = n()) %>%
+  ungroup %>%
+  mutate(p = n / sum(n)) %>%
+  View
+selected_df_coded %>%
+  group_by(cat) %>%
+  summarise(n = n()) %>%
+  ungroup %>%
+  mutate(p = n / sum(n)) %>%
+  View
 ```
-
