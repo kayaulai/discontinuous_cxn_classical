@@ -6,6 +6,7 @@ editor_options:
 ---
 
 Setup:
+
 ```{r}
 library(tidyverse)
 library(tidycollo)
@@ -16,6 +17,7 @@ library(data.tree)
 ```
 
 Import data:
+
 ```{r}
 setwd("P:\\1. Current research\\Discontinuous cxn\\classical")
 conllu_test = udpipe::udpipe_read_conllu("lzh_kyoto-ud-test.conllu")
@@ -26,8 +28,8 @@ conllu_all = bind_rows(conllu_test, conllu_train, conllu_dev) %>%
    filter(str_starts(doc_id, "KR1h0004|KR1h0001|KR1d0052|KR2e0003"))
 ```
 
-
 Get combo lists:
+
 ```{r}
 conllu_sents = conllu_all %>% group_by(doc_id, paragraph_id, sentence_id, sentence) %>% group_split
 
@@ -64,6 +66,7 @@ conllu_sents_ids = conllu_sents %>% sapply(function(x) x$sentence_id[1])
 ```
 
 From comboList, get the DF rows:
+
 ```{r}
 library(tidyr)
 
@@ -114,7 +117,6 @@ combosDF_poststep1 = combosDF %>%
     T ~ root))
 ```
 
-
 ```{r}
 measures_advv_sfp = getMeasures(combosDF_poststep1, c("advv", "sfp"), c("advv", "sfp"), doc_id = "docID")
 
@@ -156,6 +158,5 @@ final_pairs = selected_advv_sfp_df %>%
   filter(!is.na(dc) & !is.na(sfp)) %>%
   group_by(dc, sfp) %>%
   count
-write_csv(final_pairs, "final_pairs_.2.csv")
+write_excel_csv(final_pairs, "final_pairs_exp2.csv")
 ```
-

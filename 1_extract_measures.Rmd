@@ -50,12 +50,13 @@ conllu_sents_ids = conllu_sents %>% sapply(function(x) x$sentence_id[1])
              ) %>% pull(lemma)
     adv_conj = conllu_sent %>%
       filter(
+        .data$head_token_id == rootID,
         .data$token_id < rootID,
         .data$upos %in% c("ADV"),
         !str_ends(.data$xpos, "属格") #exclude 之
         ) %>% pull(lemma)
 
-    list(sfp = sfp, dc = adv_conj)
+    list(sfp = sfp, dc = adv_conj, root = root$lemma)
   }
 
   comboList = lapply(conllu_sents, function(conllu_sent){
@@ -64,7 +65,7 @@ conllu_sents_ids = conllu_sents %>% sapply(function(x) x$sentence_id[1])
     c(list(docID = conllu_sent$doc_id[1],
            paragraphID = conllu_sent$paragraph_id[1],
            sentenceID = conllu_sent$sentence_id[1],
-           sentence = conllu_sent$sentence[1]), combos)
+           sentence = conllu_sent$sentence[1]),combos)
   })
 ```
 
@@ -72,7 +73,7 @@ From comboList, we will now get the get the DF rows. The function `expand_grid()
 
 ```{r}
 library(tidyr)
-c
+
 getRowsFromCombos = function(combos){
   n_sfp = length(combos$sfp)
   n_dc = length(combos$dc)
@@ -82,7 +83,8 @@ getRowsFromCombos = function(combos){
     mutate(docID = combos$docID,
            paragraphID = combos$paragraphID,
            sentenceID = combos$sentenceID,
-           sentence = combos$sentence)
+           sentence = combos$sentence,
+           root = combos$root)
 }
 
 combosDF = lapply(comboList, getRowsFromCombos) %>% bind_rows
@@ -153,3 +155,10 @@ selected_df_coded %>%
   mutate(p = n / sum(n)) %>%
   View
 ```
+
+# Saving results
+
+```{r}
+save(file = "1_extract_measures.Rdata", list = c("comboList", "combosDF", "conllu_all", "measures_df", "selected_df"))
+```
+

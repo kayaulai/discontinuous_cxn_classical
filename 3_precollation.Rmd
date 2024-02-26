@@ -12,67 +12,134 @@ Setup:
 ```{r}
 library(tidyverse)
 library(tidycollo)
-library(udpipe)
 library(data.tree)
-
-
+library(combinat)
 ```
 
-We'll combine all the data together, but exclude all but the four texts we're focusing on:
+We don't need to change `comboDF`, fortunately! So let's just import it.
 
 ```{r}
-setwd("P:\\1. Current research\\Discontinuous cxn\\classical")
-conllu_test = udpipe::udpipe_read_conllu("lzh_kyoto-ud-test.conllu")
-conllu_train = udpipe::udpipe_read_conllu("lzh_kyoto-ud-train.conllu")
-conllu_dev = udpipe::udpipe_read_conllu("lzh_kyoto-ud-dev.conllu")
-
-conllu_all = bind_rows(conllu_test, conllu_train, conllu_dev) %>%
-   filter(str_starts(doc_id, "KR1h0004|KR1h0001|KR1d0052|KR2e0003"))
+load("1_extract_measures.Rdata")
 ```
 
 # Getting a DF of combinations
-
-The `comboList` list is a list where each of the entries corresponds to a sentence, which may have no FPs or adverbs, or one or multiple. ('dc' means 'adverb' in my code.)
-
-```{r}
-conllu_sents = conllu_all %>% group_by(doc_id, paragraph_id, sentence_id, sentence) %>% group_split
-
-conllu_sents_ids = conllu_sents %>% sapply(function(x) x$sentence_id[1])
-
-  getCombos = function(root, conllu_sent){
-    print(glue("{conllu_sent$doc_id[1]} -  {conllu_sent$paragraph_id[1]} - {conllu_sent$sentence[1]}"))
-    root_kids = as.numeric(names(root$children))
-    rootID = as.numeric(root$name)
-    sfp = conllu_sent %>%
-      filter(.data$head_token_id == rootID,
-             .data$xpos == "p,助詞,句末,*",
-             .data$token_id > rootID
-             ) %>% pull(lemma)
-    adv_conj = conllu_sent %>%
-      filter(
-        .data$token_id < rootID,
-        .data$upos %in% c("ADV"),
-        !str_ends(.data$xpos, "属格") #exclude 之
-        ) %>% pull(lemma)
-
-    list(sfp = sfp, dc = adv_conj)
-  }
-
-  comboList = lapply(conllu_sents, function(conllu_sent){
-    conllu_sent_wtree = getTreeFromConllu(conllu_sent)
-    combos = getCombos(conllu_sent_wtree$root, conllu_sent_wtree$df)
-    c(list(docID = conllu_sent$doc_id[1],
-           paragraphID = conllu_sent$paragraph_id[1],
-           sentenceID = conllu_sent$sentence_id[1],
-           sentence = conllu_sent$sentence[1]), combos)
-  })
-```
 
 From comboList, we will now get the get the DF rows. The function `expand_grid()` allows us to get combinations of the SFP/adverb whenever there is more than one of either.
 
 ```{r}
 library(tidyr)
-c
+library(glue)
+
+getSameTypeRowsFromCombos = function(combos, type = "dc"){
+  n = length(combos[[type]])
+  if(n == 0){
+    result = data.frame(matrix(c(NA, NA), nrow = 1))
+    colnames(result) = paste0(type, "_", c(1,2))
+  } else if(n == 1){
+    result = data.frame(matrix(c(combos[[type]][1],NA,NA,combos[[type]][1]), byrow=T, nrow = 2))
+    colnames(result) = paste0(type, "_", c(1,2))
+  } else {
+    result = data.frame(t(combn(combos[[type]], 2)))
+    colnames(result) = paste0(type, "_", c(1,2))
+    result = result %>%
+      add_row("{type}_1" := NA,
+              "{type}_2" := combos[[type]][1],
+              .before = 1)%>%
+      add_row("{type}_1" := combos[[type]][n],
+              "{type}_2" := NA)
+  }
+    mutate(result,
+           docID = combos$docID,
+           paragraphID = combos$paragraphID,
+           sentenceID = combos$sentenceID,
+           sentence = combos$sentence)
+}
+
+combosDFs_dc = lapply(comboList, getSameTypeRowsFromCombos)
+combosDF_dc = bind_rows(combosDFs_dc)
+rm(combosDFs_dc)
+
+combosDFs_sfp = lapply(comboList, getSameTypeRowsFromCombos, type = "sfp")
+combosDF_sfp = bind_rows(combosDFs_sfp)
+rm(combosDFs_sfp)
+```
+
+# Getting consolidated adverbs and final particles
+
+We'll calculated measures and apply our two filters:
+
+```{r message=FALSE, warning=FALSE}
+library(glue)
+getMeasuresDFFiltered = function(combosDF, slot_1 = "sfp", slot_2 = "dc"){
+  measures = getMeasures(combosDF, c(slot_1, slot_2), c(slot_1, slot_2), doc_id = "docID")
+  measures_df = measures$results
+  by = getBenjaminiYekutieli(measures_df$p_fisher_yates_attract)
+  measures_df = measures_df %>%
+    mutate(p_fisher_yates_reject = by$reject)
+  View(measures_df)
+  measures_df %>% filter(!is.na(glue("{slot_1}")), !is.na(glue("{slot_2}")), p_fisher_yates_reject, DP_norm < .99)
+}
+
+selectedDF_dc = getMeasuresDFFiltered(combosDF_dc, "dc_1", "dc_2")
+selectedDF_sfp = getMeasuresDFFiltered(combosDF_sfp, "sfp_1", "sfp_2")
+```
+
+Having consolidated them, we can now modify the original `combosDF`.
+
+First, though, let's get the rows of the old `combosDF` that contain the extracted combos:
+
+```{r}
+
+selectedDF_dc = selectedDF_dc %>% mutate(combo = paste0(dc_1, dc_2))
+selectedSFP_dc = selectedSFP_dc %>% mutate(combo = paste0(sfp_1, sfp_2))
+
+extractedComboTypes_dc = selectedDF_dc %>%
+  filter(!is.na(dc_1), !is.na(dc_2)) %>%
+  pull(combo)
+extractedsfpomboTypes_sfp = selectedSFP_dc %>%
+  filter(!is.na(sfp_1), !is.na(sfp_2)) %>%
+  pull(combo)
+
+combosDF_dc = combosDF_dc %>%
+  mutate(combo = paste0(dc_1, dc_2)) %>%
+  mutate(comboExtracted = combo %in% extractedComboTypes_dc)
+combosDF_sfp = combosDF_sfp %>%
+  mutate(combo = paste0(sfp_1, sfp_2)) %>%
+  mutate(comboExtracted = combo %in% extractedsfpomboTypes_sfp)
+```
+
+# Replacing original combosDF lines with collated adv/dc
+
+```{r}
+comboListNew = comboList
+for(entry in 1:length(comboListNew)){
+  if(length(comboListNew[[entry]]$dc) > 1){
+    combos = combn(comboListNew[[entry]]$dc, 2) %>% as.matrix
+    combosString = combos %>%
+      apply(2, function(x) paste0(x, collapse = ""))
+    combosAreCollo = combosString %>%
+      sapply(function(x) x %in% extractedComboTypes_dc)
+    comboListNew[[entry]]$dc = comboListNew[[entry]]$dc %>%
+      setdiff(combos[,combosAreCollo] %>% as.vector %>% unique) %>%
+      c(combosString[combosAreCollo])
+  }
+  if(length(comboListNew[[entry]]$sfp) > 1){
+    combos = combn(comboListNew[[entry]]$sfp, 2) %>% as.matrix
+    combosString = combos %>%
+      apply(2, function(x) paste0(x, collapse = ""))
+    combosAreCollo = combosString %>%
+      sapply(function(x) x %in% extractesfpomboTypes_sfp)
+    comboListNew[[entry]]$sfp = comboListNew[[entry]]$sfp %>%
+      setdiff(combos[,combosAreCollo] %>% as.vector %>% unique) %>%
+      c(combosString[combosAreCollo])
+  }
+}
+```
+
+
+Now we can do the comboDF again:
+
+```{r}
 getRowsFromCombos = function(combos){
   n_sfp = length(combos$sfp)
   n_dc = length(combos$dc)
@@ -85,71 +152,26 @@ getRowsFromCombos = function(combos){
            sentence = combos$sentence)
 }
 
-combosDF = lapply(comboList, getRowsFromCombos) %>% bind_rows
+combosDF = lapply(comboListNew, getRowsFromCombos) %>% bind_rows
 ```
 
-# Evaluating measures and extracting candidates
-
-Now we can get the measures from the `combosDF`:
+# Getting final results
 
 ```{r}
-measures = getMeasures(combosDF, c("sfp", "dc"), c("sfp", "dc"), doc_id = "docID")
-
-measures_df = measures$results
-
+selectedDF_exp3 = getMeasuresDFFiltered(combosDF, "dc", "sfp")
+selectedDF_exp3 = selectedDF_exp3 %>% filter(!is.na(dc), !is.na(sfp))
 ```
 
-Let's apply Benjamini-Yekutieli on the one-sided Fisher-Yates tests:
-
-```{r}
-# measures_df = measures_df %>%
-#   mutate(p_fisher_yates_1tail = case_when(
-#     or > 1 ~ p_fisher_yates / 2,
-#     T ~ 1 - p_fisher_yates / 2))
-# 
-by = getBenjaminiYekutieli(measures_df$p_fisher_yates_attract)
-measures_df = measures_df %>%
-  mutate(p_fisher_yates_reject = by$reject)
-# View(measures_df %>% filter(!is.na(sfp) & !is.na(dc)) %>% arrange(p_fisher_yates_1tail))
-# measures_df %>% select(sfp, dc, n, f_dc_not_sfp, f_sfp_not_dc, f_not_sfp_or_dc, or, p_fisher_yates, p_fisher_yates_1tail) %>% View
-# measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject) %>% select(sfp, dc, n, f_dc_not_sfp, f_sfp_not_dc, f_not_sfp_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject) %>% View
-# 
-# measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject, DP_norm < .99) %>% select(sfp, dc, n, f_dc_not_sfp, f_sfp_not_dc, f_not_sfp_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject, DP_norm, pmi) %>% arrange(pmi) %>% View
-```
-
-The last step is to extract the results using the two filters:
-
-```{r}
-selected_df = measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject, DP_norm < .99)
-View(selected_df)
-```
 
 # Exploring the results
 
 ```{r}
-# write_excel_csv(selected_df %>% select(dc, sfp, n, pmi), "selected_df.csv")
-selected_df_coded = read_csv("C:\\Users\\kayau\\Documents\\GitHub\\discontinuous_cxn_classical\\selected_df.csv")
-selected_df_coded = selected_df_coded %>%
-  mutate(full = case_when(
-    is.na(full) ~ paste0(dc, "...", sfp),
-    T ~ full)
-  ) %>%
-  group_by(full, cat) %>%
-  summarise(dc = paste(dc, collapse = "+"),
-            sfp = paste(sfp, collapse = "+"), 
-            n = min(n)) %>%
-  ungroup()
-selected_df_coded %>%
-  mutate(cat = recode(cat, rhet_q = "q")) %>%
-  group_by(cat) %>%
-  summarise(n = n()) %>%
-  ungroup %>%
-  mutate(p = n / sum(n)) %>%
-  View
-selected_df_coded %>%
-  group_by(cat) %>%
-  summarise(n = n()) %>%
-  ungroup %>%
-  mutate(p = n / sum(n)) %>%
-  View
+selectedDF_exp1 = read_csv("C:\\Users\\kayau\\Documents\\GitHub\\discontinuous_cxn_classical\\selected_df.csv")
+
+selectedDF_exp1_exp3_comparison = selectedDF_exp3 %>% 
+  filter(!is.na(dc), !is.na(sfp)) %>%
+  select(dc, sfp, n, pmi) %>%
+  full_join(selectedDF_exp1,
+            by = c("dc", "sfp"),
+            suffix = c("_exp3", "_exp1"))
 ```
