@@ -136,7 +136,6 @@ for(entry in 1:length(comboListNew)){
 }
 ```
 
-
 Now we can do the comboDF again:
 
 ```{r}
@@ -161,7 +160,6 @@ combosDF = lapply(comboListNew, getRowsFromCombos) %>% bind_rows
 selectedDF_exp3 = getMeasuresDFFiltered(combosDF, "dc", "sfp")
 selectedDF_exp3 = selectedDF_exp3 %>% filter(!is.na(dc), !is.na(sfp))
 ```
-
 
 # Exploring the results
 
