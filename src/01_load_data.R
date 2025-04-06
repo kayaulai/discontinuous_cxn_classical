@@ -1,0 +1,84 @@
+library(tidyverse)
+library(here)
+
+library(tidycollo)
+library(udpipe)
+library(data.tree)
+
+conllu_test = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-test.conllu"))
+conllu_train = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-test.conllu"))
+conllu_dev = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-test.conllu"))
+
+selected_doc_prefix_regex = "(?:KR1h0004|KR1h0001|KR1d0052|KR2e0003)"
+conllu_all = bind_rows(conllu_test, conllu_train, conllu_dev) %>%
+   filter(str_starts(doc_id, selected_doc_prefix_regex))
+
+conllu_sents = conllu_all %>% group_by(doc_id, paragraph_id, sentence_id, sentence) %>% group_split
+
+conllu_sents_ids = conllu_sents %>% sapply(function(x) x$sentence_id[1])
+
+  getCombos = function(root, conllu_sent){
+    print(glue("{conllu_sent$doc_id[1]} -  {conllu_sent$paragraph_id[1]} - {conllu_sent$sentence[1]}"))
+    root_kids = as.numeric(names(root$children))
+    rootID = as.numeric(root$name)
+    sfp = conllu_sent %>%
+      filter(.data$head_token_id == rootID,
+             .data$xpos == "p,助詞,句末,*",
+             .data$token_id > rootID
+             ) %>% pull(lemma)
+    adv_conj = conllu_sent %>%
+      filter(
+        .data$head_token_id == rootID,
+        .data$token_id < rootID,
+        .data$upos %in% c("ADV"),
+        !str_ends(.data$xpos, "属格") #exclude 之
+        ) %>% pull(lemma)
+
+    list(sfp = sfp, dc = adv_conj)
+  }
+
+  comboList = lapply(conllu_sents, function(conllu_sent){
+    conllu_sent_wtree = getTreeFromConllu(conllu_sent)
+    combos = getCombos(conllu_sent_wtree$root, conllu_sent_wtree$df)
+    c(list(docID = conllu_sent$doc_id[1],
+           paragraphID = conllu_sent$paragraph_id[1],
+           sentenceID = conllu_sent$sentence_id[1],
+           sentence = conllu_sent$sentence[1]), combos)
+  })
+
+library(tidyr)
+
+getRowsFromCombos = function(combos){
+  n_sfp = length(combos$sfp)
+  n_dc = length(combos$dc)
+  if(n_sfp == 0) combos$sfp = NA
+  if(n_dc == 0) combos$dc = NA
+  expand_grid(sfp = combos$sfp, dc = combos$dc) %>%
+    mutate(docID = combos$docID,
+           paragraphID = combos$paragraphID,
+           sentenceID = combos$sentenceID,
+           sentence = combos$sentence)
+}
+
+combosDF = lapply(comboList, getRowsFromCombos) %>% bind_rows
+
+measures = getMeasures(combosDF, c("sfp", "dc"), c("sfp", "dc"), doc_id = "docID")
+
+measures_df = measures$results
+
+measures_df = measures_df %>%
+  mutate(p_fisher_yates_1tail = case_when(
+    or > 1 ~ p_fisher_yates / 2,
+    T ~ 1 - p_fisher_yates / 2))
+
+by = getBenjaminiYekutieli(measures_df$p_fisher_yates_1tail)
+measures_df = measures_df %>%
+  mutate(p_fisher_yates_reject = by$reject)
+View(measures_df %>% filter(!is.na(sfp) & !is.na(dc)) %>% arrange(p_fisher_yates_1tail))
+measures_df %>% select(sfp, dc, n, f_dc_not_sfp, f_sfp_not_dc, f_not_sfp_or_dc, or, p_fisher_yates, p_fisher_yates_1tail) %>% View
+measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject) %>% select(sfp, dc, n, f_dc_not_sfp, f_sfp_not_dc, f_not_sfp_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject) %>% View
+measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject, DP_norm < .99) %>% select(sfp, dc, n, f_dc_not_sfp, f_sfp_not_dc, f_not_sfp_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject, DP_norm, pmi) %>% arrange(pmi) %>% View
+  
+selected_df = measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject, DP_norm < .99)
+
+write_excel_csv(selected_df %>% select(dc, sfp, n, pmi), here("output", "selected_df.csv"))
