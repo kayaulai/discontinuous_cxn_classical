@@ -1,0 +1,67 @@
+```{r}
+library(readr)
+library(Matrix)
+combosDF = read_rds(here("output", "02_explore_preprocess", "combosDF.rds"))
+```
+
+## Create design matrix
+
+```{r}
+combosDF_bydoc <- combosDF |>
+    group_split(docID)
+
+combosDF_cartprod <- combosDF |>
+    group_by(dc, sfp_1, sfp_2, .drop = FALSE) |>
+    count()
+```
+
+
+Calling group_by(docID, dc, sfp_1, sfp_2) is too demanding.
+
+Better option: Create the design matrix on my own, based on the one we saw.
+
+Let's first get the observation and offset vectors:
+```{r}
+n_obs = integer(0)
+doc_lengths = integer(0)
+for(combosDF_doc in combosDF_bydoc){
+    print(combosDF_doc$docID[1])
+    combosDF_gp <- combosDF_doc %>% 
+        group_by(dc, sfp_1, sfp_2, .drop = FALSE) %>%
+        count()
+    n_obs <- c(n_obs, combosDF_gp$n)
+    doc_lengths <- c(doc_lengths, rep(combosDF_doc$doc_length[1], nrow(combosDF_gp)))
+    if(length(n_obs) %% 43656 != 0) stop()
+}
+write_rds(n_obs, here("output", "03_negbin_model", "n_obs.rds"))
+write_rds(doc_lengths, here("output", "03_negbin_model", "doc_lengths.rds"))
+```
+
+The design matrix is just the same thing repeated n times over. So here is it once:
+
+```{r}
+X_onedoc <- model.matrix(~ 0 + dc + sfp_1 + sfp_2, combosDF_cartprod,
+              contrasts = 
+                list(
+                    sfp_1 = contrasts(combosDF_cartprod$sfp_1, contrasts=FALSE),
+                    sfp_2 = contrasts(combosDF_cartprod$sfp_2, contrasts=FALSE))
+                )
+X_onedoc <- as(X_onedoc, "dgCMatrix")
+```
+
+And everything else:
+```{r}
+X <- X_onedoc
+for(i in 1:length(levels(combosDF$docID)) - 1){
+    if(i %% 50) print(glue::glue("{i} / length(levels(combosDF$docID)) - 1"))
+    X <- rbind(X, X_onedoc)
+    if(nrow(X) %% 43656 != 0) stop()
+}
+write_rds(X, here("output", "03_negbin_model", "X.rds"))
+```
+
+```{r}
+library(glmnet)
+model_pois <- glmnet(X, n_obs, family = poisson(), offset = log(doc_lengths))
+
+```

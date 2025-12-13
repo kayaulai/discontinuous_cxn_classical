@@ -141,6 +141,7 @@ selected_df_coded = selected_df_coded %>%
             sfp = paste(sfp, collapse = "+"), 
             n = min(n)) %>%
   ungroup()
+
 selected_df_coded %>%
   mutate(cat = recode(cat, rhet_q = "q")) %>%
   group_by(cat) %>%
@@ -148,6 +149,7 @@ selected_df_coded %>%
   ungroup %>%
   mutate(p = n / sum(n)) %>%
   View
+
 selected_df_coded %>%
   group_by(cat) %>%
   summarise(n = n()) %>%

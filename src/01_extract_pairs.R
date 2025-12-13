@@ -3,27 +3,31 @@ library(tidyr)
 library(here)
 
 library(tidycollo)
+library(glue)
 library(udpipe)
 library(data.tree)
 
+source(here("src", "utils", "trees.R"))
+
 importData = function(selected_doc_prefix_regex){
   conllu_test = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-test.conllu"))
-  conllu_train = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-test.conllu"))
-  conllu_dev = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-test.conllu"))
+  conllu_train = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-train.conllu"))
+  conllu_dev = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-dev.conllu"))
 
-  selected_doc_prefix_regex = "(?:KR1h0004|KR1h0001|KR1d0052|KR2e0003)"
   conllu_all = bind_rows(conllu_test, conllu_train, conllu_dev) %>%
     filter(str_starts(doc_id, selected_doc_prefix_regex))
 }
 
 getConlluSents = function(conllu_all){
-  conllu_all %>% group_by(doc_id, paragraph_id, sentence_id, sentence) %>% group_split
+  conllu_all %>%
+    group_by(doc_id, paragraph_id, sentence_id, sentence) %>%
+    group_split
 }
 
 viewSentIDs = function(conllu_sents) conllu_sents %>% sapply(function(x) x$sentence_id[1])
 
 getCombos = function(root, conllu_sent){
-  print(glue("{conllu_sent$doc_id[1]} -  {conllu_sent$paragraph_id[1]} - {conllu_sent$sentence[1]}"))
+  print(glue("Processing: {conllu_sent$doc_id[1]} -  {conllu_sent$paragraph_id[1]} - {conllu_sent$sentence[1]}"))
   root_kids = as.numeric(names(root$children))
   rootID = as.numeric(root$name)
   sfp = conllu_sent %>%
@@ -66,13 +70,17 @@ getRowsFromCombos = function(combos){
 }
 
 
-
 main = function(){
+  selected_doc_prefix_regex = "(?:KR1h0004|KR1h0001|KR1d0052|KR2e0003)"
   conllu_all = importData(selected_doc_prefix_regex)
   conllu_sents = getConlluSents(conllu_all)
   comboList = getComboList(conllu_sents)
   combosDF = lapply(comboList, getRowsFromCombos) %>% bind_rows
+  write_rds(comboList, here("output", "01_extract_pairs", "comboList.rds"))
+  write_rds(combosDF, here("output", "01_extract_pairs", "combosDF.rds"))
 }
 
 
-
+if(interactive()){
+  main()
+}

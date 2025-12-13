@@ -1,0 +1,347 @@
+
+
+```{r}
+library(purrr)
+library(here)
+library(readr)
+library(dplyr)
+combo_list <- read_rds(here("output", "01_extract_pairs", "comboList.rds"))
+```
+
+# Extract some basic info
+
+```{r}
+combo_list_nonnull_locs <-
+    sapply(combo_list,
+    \(x) length(x$sfp) > 0 | length(x$dc) > 0
+    ) |>
+        which()
+```
+
+```{r}
+sfp_seq_counts = sapply(
+    combo_list,
+    \(x) as.factor(paste(x$sfp, collapse = " "))
+    ) |>
+    summary()
+
+dc_seqs_seq_counts = sapply(
+    combo_list,
+    \(x) as.factor(paste(x$dc, collapse = " "))
+    ) |>
+    summary()
+```
+
+```{r}
+sfp_vocab = map(
+    combo_list, \(x) x$sfp
+    ) |>
+    reduce(c) |>
+    unique()
+
+dc_vocab = map(
+    combo_list, \(x) x$dc
+    ) |>
+    reduce(c) |>
+    unique()
+```
+
+# Dive deep into SFPs
+
+## Rare SFPs
+These appear to be exclusively Early Archaic citations, so we could take them off:
+```{r}
+combo_list[which(sapply(combo_list, \(x) "思" %in% x$sfp))]
+combo_list[which(sapply(combo_list, \(x) "居" %in% x$sfp))]
+combo_list[which(sapply(combo_list, \(x) "止" %in% x$sfp))]
+```
+
+Let's remove them:
+```{r}
+remove_from_combo_list <- function(combo_list, to_rm, element){
+    for(i in 1:length(combo_list)){
+        combo_list[[i]][[element]] <-
+            setdiff(combo_list[[i]][[element]], to_rm)
+    }
+    combo_list
+}
+combo_list <- remove_from_combo_list(combo_list, c("思", "居", "止"), "sfp")
+sfp_vocab <- setdiff(sfp_vocab, c("思", "居", "止"))
+```
+
+Let's look at standalone 而:
+
+```{r}
+combo_list[which(
+    sapply(combo_list,
+    \(x) all(x$sfp == "而") & length(x$sfp) > 0))
+        ]
+```
+
+Seems really uncommon, and never occurring with a dc anyways. So let's consolidate 而已:
+
+```{r}
+locate_subseq <- function(seq, subseq){
+    looking = 0
+    subseq_locs = list()
+    start_idx_cand = numeric(0)
+
+    for(i in 1:length(seq)){
+        item = seq[i]
+        if(looking == 0){
+            # If we weren't previously in a candidate subseq
+            if(item == subseq[1]){
+                looking = 1
+                start_idx_cand = i
+            }
+        } else if(looking > 0){
+            # If we're in a candidate subseq
+            if(item != subseq[looking + 1]){
+                # Wrong thing? stop looking
+                looking = 0
+            } else if(looking + 1 == length(subseq)){
+                looking = 0
+                subseq_locs = c(subseq_locs, list(c(start_idx_cand, i)))
+                start_idx_cand = numeric(0)
+            }
+        }
+    }
+    subseq_locs
+}
+
+merge_in_combo_list <- function(combo_list, to_merge, element){
+    merged <- paste0(to_merge, collapse = "")
+    # browser()
+    for(i in 1:length(combo_list)){
+        if(length(combo_list[[i]][[element]]) < length(to_merge)) next
+        to_merge_locs <- locate_subseq(
+            combo_list[[i]][[element]], to_merge
+            )
+        
+        #the [1] is bc I don't actually support multiple yet
+        if(length(to_merge_locs) > 1){
+            for(loc in to_merge_locs[1]){
+                if(i == 1312) browser()
+                combo_list[[i]][[element]] <-
+                    combo_list[[i]][[element]][-(loc[1]:loc[2])] |>
+                    append(merged, after = loc[1] - 1)
+            }
+        }
+    }
+    combo_list
+}
+# test
+merge_in_combo_list(
+    list(list(sfp = c("焉", "而", "已", "矣"))),
+    c("而", "已"),
+    "sfp") |>
+        print()
+
+combo_list <- combo_list |>
+    merge_in_combo_list(c("而", "已"), "sfp")
+sfp_vocab <- c(sfp_vocab, "而已")
+```
+
+Rerunning vocab to check everything ran normally:
+```{r}
+sfp_vocab = map(
+    combo_list, \(x) x$sfp
+    ) |>
+    reduce(c) |>
+    unique()
+print(sfp_vocab)
+```
+
+## Determining where to put an SFP
+
+Find how many times SFPs are first and last in combos:
+```{r}
+vec_with_names <- function(names, type = "integer"){
+    result <- vector(mode = "integer" , length = length(names))
+    names(result) <- names
+    result
+}
+
+list_with_names <- function(names){
+    result <- vector(mode = "list" , length = length(names))
+    names(result) <- names
+    result
+}
+sfp_first_counts <- vec_with_names(sfp_vocab, type = "integer")
+sfp_last_counts <- vec_with_names(sfp_vocab, type = "integer")
+
+for(item in combo_list){
+    if(length(item$sfp) > 1){
+        print(item$sfp)
+        sfp_first_counts[[item$sfp[1]]] <-
+            sfp_first_counts[[item$sfp[1]]] + 1
+        sfp_last_counts[[item$sfp[length(item$sfp)]]] <-
+            sfp_last_counts[[item$sfp[length(item$sfp)]]] + 1
+    }
+}
+```
+
+```{r}
+sfp_alone_loc <- vec_with_names(sfp_vocab, type = "integer")
+
+for(sfp in sfp_vocab){
+    if(sfp_first_counts[sfp] >= sfp_last_counts[sfp]){
+        sfp_alone_loc[sfp] <- "f"
+    } else sfp_alone_loc[sfp] <- "l"
+}
+print(sfp_alone_loc)
+```
+
+# Deep dive into DCs
+
+# Deep dive into pairings
+
+```{r}
+dc_to_sfp <- vector(mode = "list" , length = length(dc_vocab))
+names(dc_to_sfp) <- dc_vocab
+sfp_to_dc <- vector(mode = "list" , length = length(sfp_vocab))
+names(sfp_to_dc) <- sfp_vocab
+
+for(combo_info in combo_list){
+    for(dc in combo_info$dc){
+        dc_to_sfp[[dc]] = unique(c(dc_to_sfp[[dc]], combo_info$sfp))
+    }
+    for(sfp in combo_info$sfp){
+        sfp_to_dc[[sfp]] = unique(c(sfp_to_dc[[sfp]], combo_info$dc))
+    }
+}
+```
+
+
+```{r}
+dc_removed <- character(0)
+for(dc in names(dc_to_sfp)){
+    if(length(dc_to_sfp[[dc]]) == 0){
+        dc_removed <- c(dc_removed, dc)
+        dc_to_sfp[[dc]] <- NULL
+        dc_vocab <- setdiff(dc_vocab, dc)
+    }
+}
+combo_list <- remove_from_combo_list(combo_list, dc_removed, "dc")
+
+
+cli::cli_inform(glue::glue("Removing from dc: {paste0(dc_removed, collapse = ',')}"))
+```
+
+
+```{r}
+sfp_removed <- character(0)
+for(sfp in names(sfp_to_dc)){
+    if(length(sfp_to_dc[[sfp]]) == 0){
+        sfp_removed <- c(sfp_removed, sfp)
+        sfp_to_dc[[sfp]] <- NULL
+        sfp_vocab <- setdiff(sfp_vocab, sfp)
+    }
+}
+combo_list <- remove_from_combo_list(combo_list, sfp_removed, "sfp")
+
+cli::cli_inform(glue::glue("Removing from sfp: {paste0(sfp_removed, collapse = ',')}"))
+```
+
+# Dataframe creation
+
+
+```{r}
+get_bigrams = function(v){
+    if(length(v) > 1){
+        purrr::map(1:(length(v) - 1),
+        \(i) v[i:(i + 1)]
+        )
+    } else if(v == "NONE"){
+        list(c("NONE", "NONE"))
+    } else { # length is 1
+        if(sfp_alone_loc[[v]] == "f"){
+            list(c("NONE", v))
+        } else {
+            list(c(v, "NONE"))
+        }
+    }
+}
+
+getRowsFromCombos = function(combos){
+  n_sfp = length(combos$sfp)
+  n_dc = length(combos$dc)
+  if(n_sfp == 0) combos$sfp = "NONE"
+  if(n_dc == 0) combos$dc = "NONE"
+  combos$sfp = get_bigrams(combos$sfp)
+    tidyr::expand_grid(sfp = combos$sfp, dc = combos$dc) |>
+    mutate(sfp_1 = purrr::map(sfp, \(x) x[[1]]),
+        sfp_2 = purrr::map(sfp, \(x) x[[2]])
+        ) |>
+    mutate(across(starts_with("sfp_"), unlist)) |>
+    select(-sfp) |>
+    mutate(docID = combos$docID,
+            paragraphID = combos$paragraphID,
+            sentenceID = combos$sentenceID,
+            sentence = combos$sentence,
+            .before = dc)
+}
+
+combosDF <- purrr::map(
+    combo_list[combo_list_nonnull_locs],
+    getRowsFromCombos,
+    .progress = TRUE) |>
+    bind_rows()
+
+```
+
+
+```{r}
+combosDF <- combosDF |>
+    mutate(
+        dc = factor(dc, levels = dc_vocab),
+        sfp_1 = factor(
+            sfp_1,
+            levels = c("NONE", setdiff(unique(sfp_1), "NONE"))
+        ),
+        sfp_2 = factor(
+            sfp_2,
+            levels = c("NONE", setdiff(unique(sfp_2), "NONE"))
+            ),
+        docID = factor(
+            docID,
+            levels = sort(unique(docID))
+        )
+    )
+```
+
+```{r}
+combosDF <- combosDF |>
+    arrange(docID, sentenceID)
+```
+
+
+# Docs
+
+
+```{r}
+unique_docs <- unique(combosDF$docID)
+```
+
+```{r}
+combosDF_old <- read_rds(here("output", "01_extract_pairs", "combosDF.rds"))
+
+doc_count_df <- combosDF_old |>
+    group_by(docID) |>
+    count()
+doc_counts <- doc_count_df$n
+names(doc_counts) <- doc_count_df$docID
+
+combosDF <- combosDF |>
+    left_join(doc_count_df, by = "docID") |>
+    rename(doc_length = n)
+
+rm(combosDF_old)
+```
+
+
+
+```{r}
+write_csv(combosDF, here("output", "02_explore_preprocess", "combosDF.csv"))
+write_rds(combosDF, here("output", "02_explore_preprocess", "combosDF.rds"))
+```

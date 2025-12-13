@@ -2,3 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+output/03_negbin_model/doc_lengths.rds
+output/03_negbin_model/n_obs.rds
+output/03_negbin_model/X.rds
+output/03_negbin_model/doc_lengths.rds
+output/03_negbin_model/n_obs.rds
+output/03_negbin_model/X.rds

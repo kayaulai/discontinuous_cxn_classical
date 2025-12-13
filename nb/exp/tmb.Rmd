@@ -1,0 +1,248 @@
+
+```{r}
+library(TMB)
+library(Matrix)
+```
+
+------------------------------------------------------------
+1. Sum-to-zero basis for a factor
+------------------------------------------------------------
+
+```{r}
+sum_to_zero_basis <- function(K) {
+  Q <- diag(K) - matrix(1 / K, K, K)
+  qr.Q(qr(Q))[, 1:(K - 1), drop = FALSE]
+}
+```
+
+------------------------------------------------------------
+2. Kronecker basis for interactions
+------------------------------------------------------------
+
+```{r}
+interaction_basis <- function(B_list) {
+  Reduce(kronecker, B_list)
+}
+```
+
+------------------------------------------------------------
+3. Build B for main effects + interactions
+------------------------------------------------------------
+
+```{r}
+build_B <- function(factors, max_order = length(factors)) {
+  B_main <- lapply(factors, function(f) {
+    sum_to_zero_basis(nlevels(f))
+  })
+
+  B_blocks <- list()
+
+  for (order in seq_len(max_order)) {
+    combos <- combn(seq_along(factors), order, simplify = FALSE)
+
+    for (idx in combos) {
+      name <- paste(names(factors)[idx], collapse = ":")
+      B_blocks[[name]] <- interaction_basis(B_main[idx])
+    }
+  }
+
+  bdiag(B_blocks)
+}
+```
+
+------------------------------------------------------------
+4. Build design matrix X (NO intercept)
+------------------------------------------------------------
+
+```{r}
+build_X <- function(data, terms) {
+  X_blocks <- lapply(terms, function(fml) {
+    model.matrix(as.formula(paste0("~ ", fml, " - 1")), data)
+  })
+
+  do.call(cbind, X_blocks)
+}
+```
+
+Example terms:
+
+```{r}
+terms <- c(
+  "A",
+  "B",
+  "A:B"
+)
+```
+
+------------------------------------------------------------
+5. Example: contingency table setup
+------------------------------------------------------------
+
+```{r}
+I <- 30L
+J <- 50L
+D <- 1000L
+vocab_I <- paste0("I_cat", 1:I)
+vocab_J <- paste0("J_cat", 1:J)
+
+N_total <- 10000L
+
+get_powerlaw <- function(no_cats){
+  prenorm = 1/(1:no_cats)
+  prenorm / sum(prenorm)
+}
+
+set.seed(2025)
+doc_idx <- sample(D, N_total, replace = TRUE) 
+cats_slot1 <- sample(I, N_total, replace = TRUE, prob = get_powerlaw(I))
+cats_slot2 <- sample(J, N_total, replace = TRUE, prob = get_powerlaw(J))
+n_obs <- sample(c(1L, 2L, 3L, 4L, 5L), N_total, replace = TRUE, prob = c(0.4, 0.25, 0.15, 0.1, 0.1))
+n_obs[1] <- 10L
+n_obs[5] <- 20L
+exposure_perdoc <- ceiling(runif(D, min = 30, max = 80)) 
+exposures <- exposure_perdoc[doc_idx]
+```
+
+```{r}
+reference_matrix <- function(f) {
+  model.matrix(~ f - 1) # standard R reference coding with first level as reference
+}
+
+build_C <- function(f) {
+  K <- nlevels(f)
+  B <- sum_to_zero_basis(K)
+  # Identity for first K-1 levels in B
+  C <- rbind(diag(K-1), -1*matrix(1, 1, K-1)) # last row = -sum of others
+  return(C)
+}
+
+interaction_basis <- function(B_list) Reduce(kronecker, B_list)
+interaction_mapping <- function(C_list) Reduce(kronecker, C_list)
+
+```
+
+```{r}
+build_BC <- function(factors, max_order = length(factors)) {
+  B_blocks <- list()
+  C_blocks <- list()
+  
+  # Main effects
+  B_main <- lapply(factors, function(f) sum_to_zero_basis(nlevels(f)))
+  C_main <- lapply(factors, function(f) build_C(f))
+  
+  for(order in seq_len(max_order)) {
+    combos <- combn(seq_along(factors), order, simplify = FALSE)
+    for(idx in combos) {
+      name <- paste(names(factors)[idx], collapse=":")
+      B_blocks[[name]] <- interaction_basis(B_main[idx])
+      C_blocks[[name]] <- interaction_mapping(C_main[idx])
+    }
+  }
+  
+  B <- bdiag(B_blocks)
+  C <- bdiag(C_blocks)
+  
+  list(B=B, C=C)
+}
+
+# 1f. Build likelihood design matrix X_ref (reference coding)
+build_Xref <- function(data, terms) {
+  X_blocks <- lapply(terms, function(fml) model.matrix(as.formula(paste0("~", fml, "-1")), data))
+  do.call(cbind, X_blocks)
+}
+
+```
+
+```{r}
+# Data frame with factors and counts
+dat <- data.frame(
+  y = n_obs,
+  A = factor(cats_slot1),
+  B = factor(cats_slot2)
+)
+
+# Offset: expected counts or exposure
+offset <- log(exposures)
+
+# Factors list
+factors <- list(A = dat$A, B = dat$B)
+
+# Build matrices
+X <- build_X(dat, terms = c("A", "B", "A:B"))
+B <- build_B(factors, max_order = 2)
+
+stopifnot(ncol(X) == nrow(B))
+```
+
+------------------------------------------------------------
+6. Compile and fit model
+------------------------------------------------------------
+
+```{r}
+dat <- data.frame(
+  y = c(5,2,3,7,1,4),
+  A = factor(c("a1","a2","a1","a2","a1","a2")),
+  B = factor(c("b1","b1","b2","b2","b1","b2"))
+)
+offset <- rep(0, nrow(dat))
+
+factors <- list(A=dat$A, B=dat$B)
+terms <- c("A","B","A:B")
+
+# Build B and C
+BC <- build_BC(factors, max_order=2)
+B <- BC$B
+C <- BC$C
+
+# Reference coding design matrix
+X_ref <- build_Xref(dat, terms)
+
+# Data list for TMB
+data <- list(
+  y = dat$y,
+  offset = offset,
+  X_ref = X_ref,
+  B = B,
+  C = C,
+  lambda = 0.1
+)
+
+parameters <- list(
+  intercept = 0,
+  alpha = rep(0, ncol(B)),
+  log_phi = 0
+)
+
+```
+
+```{r}
+library(here)
+compile(here("cpp", "nb_lasso_stz_intercept.cpp"), clean = TRUE)
+dyn.load(dynlib(here("cpp", "nb_lasso_stz_intercept")))
+
+obj <- MakeADFun(
+  data = data,
+  parameters = parameters,
+  DLL = "nb_lasso_stz_intercept",
+  silent = TRUE
+)
+
+opt <- nlminb(obj$par, obj$fn, obj$gr)
+```
+
+------------------------------------------------------------
+7. Extract fitted parameters
+------------------------------------------------------------
+
+```{r}
+par <- opt$par
+
+intercept_hat <- par["intercept"]
+phi_hat <- exp(par["log_phi"])
+
+alpha_hat <- par[grep("^alpha", names(par))]
+beta_hat  <- as.vector(B %*% alpha_hat)
+
+eta_hat <- intercept_hat + X %*% beta_hat + offset
+mu_hat  <- exp(eta_hat)
+```
