@@ -294,7 +294,7 @@ combosDF <- purrr::map(
 ```{r}
 combosDF <- combosDF |>
     mutate(
-        dc = factor(dc, levels = dc_vocab),
+        dc = factor(dc, levels = c("NONE", dc_vocab)),
         sfp_1 = factor(
             sfp_1,
             levels = c("NONE", setdiff(unique(sfp_1), "NONE"))
