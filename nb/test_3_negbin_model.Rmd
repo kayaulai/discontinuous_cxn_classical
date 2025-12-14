@@ -1,0 +1,108 @@
+---
+title: "Extract pairs from the conllu files"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+library(fixest)
+library(Matrix)
+```
+
+# Generate fake data and format it in different ways
+
+Step 1: Generate the fake data
+
+```{r}
+I <- 30L
+J <- 50L
+D <- 1000L
+vocab_I <- paste0("I_cat", 1:I)
+vocab_J <- paste0("J_cat", 1:J)
+
+N_total <- 10000L
+
+get_powerlaw <- function(no_cats){
+  prenorm = 1/(1:no_cats)
+  prenorm / sum(prenorm)
+}
+
+set.seed(2025)
+doc_idx <- sample(D, N_total, replace = TRUE) 
+cats_slot1 <- sample(I, N_total, replace = TRUE, prob = get_powerlaw(I))
+cats_slot2 <- sample(J, N_total, replace = TRUE, prob = get_powerlaw(J))
+n_obs <- sample(c(1L, 2L, 3L, 4L, 5L), N_total, replace = TRUE, prob = c(0.4, 0.25, 0.15, 0.1, 0.1))
+n_obs[1] <- 10L
+n_obs[5] <- 20L
+offsets_perdoc <- ceiling(runif(D, min = 30, max = 80)) 
+offsets <- offsets_perdoc[doc_idx]
+```
+
+Step 2: Format the fake data as a DF
+
+```{r}
+data_fake <- data.frame(doc = doc_idx,
+    slot1 = factor(vocab_I[cats_slot1], levels = vocab_I),
+    slot2 = factor(vocab_J[cats_slot1], levels = vocab_J),
+    n = n_obs,
+    offsets = offsets)
+```
+
+Step 3: Get the matrix form of the data
+
+```{r}
+# C_X <- I
+# C_Y <- J
+# C_XY <- I * J
+# C <- 1 + C_X + C_Y + C_XY
+
+# N_cells <- N_total * 4
+
+# Col_Intercept <- rep(1, N_total)
+# Col_X <- X_Level + 1 
+# Col_Y <- theta_Level + 1 + C_X
+# Col_XY <- (X_Level - 1) * J + theta_Level + 1 + C_X + C_Y
+
+# X_rows_full <- rep(1:N_total, 4)
+# X_cols_full <- c(Col_Intercept, Col_X, Col_Y, Col_XY)
+# X_values_full <- rep(1, N_cells)
+
+# X_sparse <- Matrix::sparseMatrix(
+#   i = X_rows_full,
+#   j = X_cols_full,
+#   x = X_values_full,
+#   dims = c(N_total, C),
+#   repr = "C",
+#   check = TRUE
+# )
+
+# group_indices = list("X" = 2:(I + 1), "Y" = (I + 2):(I + J + 1), "XY" = (I + J + 2):(I + J + I * J + 1))
+```
+
+
+# Create the negative binomial model
+
+```{r}
+# phi <- 1.0 / alpha_param 
+# eta <- X_sparse %*% params
+# mu <- exp(X_sparse %*% params + T_offset_vec)
+
+# (-lgamma(n + phi) +
+#   lgamma(phi) + lgamma(n + 1) -
+#   phi * log(phi) -
+#   n * (X_sparse %*% params + T_offset_vec) + 
+#   n * log(exp(X_sparse %*% params + T_offset_vec) + phi) +
+#   phi * log(exp(X_sparse %*% params + T_offset_vec) + mu) )
+
+```
+
+```{r}
+library(fixest)
+gravity_negbin = fenegbin(n ~ slot1 + slot2 + slot1:slot2, data_fake, offset = log(data_fake$offset))
+```
+
+# Create the final sparse matrix
+
+```{r}
+```

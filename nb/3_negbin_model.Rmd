@@ -1,6 +1,7 @@
 ```{r}
 library(readr)
 library(Matrix)
+library(dplyr)
 combosDF = read_rds(here("output", "02_explore_preprocess", "combosDF.rds"))
 ```
 
@@ -37,6 +38,13 @@ write_rds(n_obs, here("output", "03_negbin_model", "n_obs.rds"))
 write_rds(doc_lengths, here("output", "03_negbin_model", "doc_lengths.rds"))
 ```
 
+```{r}
+n_obs_matrix <- as(Matrix(n_obs, nrow = length(combosDF_bydoc), byrow = TRUE), "CsparseMatrix")
+doc_lengths_matrix <- as(Matrix(doc_lengths, nrow = length(combosDF_bydoc), byrow = TRUE), "CsparseMatrix")
+Matrix::writeMM(n_obs_matrix, file = here("output", "03_negbin_model", "n_obs_matrix.mtx"))
+Matrix::writeMM(doc_lengths_matrix, file = here("output", "03_negbin_model", "doc_lengths_matrix.mtx"))
+```
+
 The design matrix is just the same thing repeated n times over. So here is it once:
 
 ```{r}
@@ -47,13 +55,15 @@ X_onedoc <- model.matrix(~ 0 + dc + sfp_1 + sfp_2, combosDF_cartprod,
                     sfp_2 = contrasts(combosDF_cartprod$sfp_2, contrasts=FALSE))
                 )
 X_onedoc <- as(X_onedoc, "dgCMatrix")
+write_rds(X_onedoc, here("output", "03_negbin_model", "X_onedoc.rds"))
+Matrix::writeMM(X_onedoc, file = here("output", "03_negbin_model", "X_onedoc.mtx"))
 ```
 
 And everything else:
 ```{r}
 X <- X_onedoc
 for(i in 1:length(levels(combosDF$docID)) - 1){
-    if(i %% 50) print(glue::glue("{i} / length(levels(combosDF$docID)) - 1"))
+    # if(i %% 50 == 0) print(glue::glue("{i} / length(levels(combosDF$docID)) - 1"))
     X <- rbind(X, X_onedoc)
     if(nrow(X) %% 43656 != 0) stop()
 }
@@ -63,5 +73,78 @@ write_rds(X, here("output", "03_negbin_model", "X.rds"))
 ```{r}
 library(glmnet)
 model_pois <- glmnet(X, n_obs, family = poisson(), offset = log(doc_lengths))
+
+```
+
+## Create design matrix (take 2)
+```{r}
+combosDF <- combosDF |>
+    mutate(bookID = stringr::str_extract(docID, r"(KR\d[a-z]\d{4}(?=_))")) |>
+    mutate(bookID = factor(bookID)) |>
+    group_by(bookID) |>
+    mutate(book_length = sum(doc_length)) |>
+    ungroup()
+```
+
+
+```{r}
+combosDF_bybook <- combosDF |>
+    group_split(bookID)
+
+combosDF_cartprod <- combosDF |>
+    group_by(dc, sfp_1, sfp_2, .drop = FALSE) |>
+    count()
+```
+
+
+Calling group_by(bookID, dc, sfp_1, sfp_2) is too demanding.
+
+Better option: Create the design matrix on my own, based on the one we saw.
+
+Let's first get the observation and offset vectors:
+```{r}
+n_obs = integer(0)
+book_lengths = integer(0)
+for(combosDF_book in combosDF_bybook){
+    print(combosDF_book$bookID[1])
+    combosDF_gp <- combosDF_book %>% 
+        group_by(dc, sfp_1, sfp_2, .drop = FALSE) %>%
+        count()
+    n_obs <- c(n_obs, combosDF_gp$n)
+    book_lengths <- c(book_lengths, rep(combosDF_book$book_length[1], nrow(combosDF_gp)))
+    if(length(n_obs) %% 43656 != 0) stop()
+}
+write_rds(n_obs, here("output", "03_negbin_model", "n_obs.rds"))
+write_rds(book_lengths, here("output", "03_negbin_model", "book_lengths.rds"))
+```
+
+The design matrix is just the same thing repeated n times over. So here is it once:
+
+```{r}
+X_onebook <- model.matrix(~ 0 + dc * sfp_1 * sfp_2, combosDF_cartprod,
+              contrasts = 
+                list(
+                    sfp_1 = contrasts(combosDF_cartprod$sfp_1, contrasts=FALSE),
+                    sfp_2 = contrasts(combosDF_cartprod$sfp_2, contrasts=FALSE))
+                )
+X_onebook <- as(X_onebook, "dgCMatrix")
+write_rds(X, here("output", "03_negbin_model", "X_onebook.rds"))
+
+```
+
+And everything else:
+```{r}
+X <- X_onebook
+for(i in 1:(length(levels(combosDF$bookID)) - 1)){
+    # if(i %% 50 == 0) print(glue::glue("{i} / length(levels(combosDF$bookID)) - 1"))
+    X <- rbind(X, X_onebook)
+    if(nrow(X) %% 43656 != 0) stop()
+}
+write_rds(X, here("output", "03_negbin_model", "X.rds"))
+```
+
+```{r}
+library(glmnet)
+model_pois <- glmnet(X, n_obs, family = poisson(), offset = log(book_lengths))
 
 ```
