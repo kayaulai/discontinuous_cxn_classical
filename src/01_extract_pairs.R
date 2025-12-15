@@ -10,9 +10,12 @@ library(data.tree)
 source(here("src", "utils", "trees.R"))
 
 importData = function(selected_doc_prefix_regex){
-  conllu_test = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-test.conllu"))
-  conllu_train = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-train.conllu"))
-  conllu_dev = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-dev.conllu"))
+  conllu_test = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-test.conllu")) %>%
+    mutate(set = "test")
+  conllu_train = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-train.conllu")) %>%
+    mutate(set = "train")
+  conllu_dev = udpipe::udpipe_read_conllu(here("data", "raw", "lzh_kyoto-ud-dev.conllu")) %>%
+    mutate(set = "dev")
 
   conllu_all = bind_rows(conllu_test, conllu_train, conllu_dev) %>%
     filter(str_starts(doc_id, selected_doc_prefix_regex))
@@ -53,7 +56,9 @@ getComboList = function(conllu_sents){
     c(list(docID = conllu_sent$doc_id[1],
             paragraphID = conllu_sent$paragraph_id[1],
             sentenceID = conllu_sent$sentence_id[1],
-            sentence = conllu_sent$sentence[1]), combos)
+            sentence = conllu_sent$sentence[1],
+            set = conllu_sent$set[1]
+          ), combos)
   })
 }
 

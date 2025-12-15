@@ -2,7 +2,10 @@
 library(readr)
 library(Matrix)
 library(dplyr)
-combosDF = read_rds(here("output", "02_explore_preprocess", "combosDF.rds"))
+library(here)
+combosDF <- read_rds(here("output", "02_explore_preprocess", "combosDF.rds"))
+doc_set_map <- read_rds(here("output", "02_explore_preprocess", "doc_set_map.rds"))
+doc_set_map <- doc_set_map[levels(combosDF$docID)] # harmonise with combosDF order
 ```
 
 ## Create design matrix
@@ -23,26 +26,42 @@ Better option: Create the design matrix on my own, based on the one we saw.
 
 Let's first get the observation and offset vectors:
 ```{r}
-n_obs = integer(0)
-doc_lengths = integer(0)
+n_obs_train = integer(0)
+n_obs_val = integer(0)
+doc_lengths_val = integer(0)
+doc_lengths_train = integer(0)
+
 for(combosDF_doc in combosDF_bydoc){
-    print(combosDF_doc$docID[1])
+    currDocID = combosDF_doc$docID[1]
     combosDF_gp <- combosDF_doc %>% 
         group_by(dc, sfp_1, sfp_2, .drop = FALSE) %>%
         count()
-    n_obs <- c(n_obs, combosDF_gp$n)
-    doc_lengths <- c(doc_lengths, rep(combosDF_doc$doc_length[1], nrow(combosDF_gp)))
-    if(length(n_obs) %% 43656 != 0) stop()
+    if(doc_set_map[currDocID] == "train"){
+        n_obs_train <- c(n_obs_train, combosDF_gp$n)
+        doc_lengths_train <- c(doc_lengths_train, rep(combosDF_doc$doc_length[1], nrow(combosDF_gp)))
+    } else {
+        n_obs_val <- c(n_obs_val, combosDF_gp$n)
+        doc_lengths_val <- c(doc_lengths_val, rep(combosDF_doc$doc_length[1], nrow(combosDF_gp)))
+    }
+    if(length(n_obs_val) %% 43656 != 0) stop()
 }
-write_rds(n_obs, here("output", "03_negbin_model", "n_obs.rds"))
-write_rds(doc_lengths, here("output", "03_negbin_model", "doc_lengths.rds"))
+
+write_rds(n_obs_train, here("output", "03_negbin_model", "n_obs_train.rds"))
+write_rds(doc_lengths_train, here("output", "03_negbin_model", "doc_lengths_train.rds"))
+write_rds(n_obs_val, here("output", "03_negbin_model", "n_obs_train.rds"))
+write_rds(doc_lengths_val, here("output", "03_negbin_model", "doc_lengths_train.rds"))
 ```
 
 ```{r}
-n_obs_matrix <- as(Matrix(n_obs, nrow = length(combosDF_bydoc), byrow = TRUE), "CsparseMatrix")
-doc_lengths_matrix <- as(Matrix(doc_lengths, nrow = length(combosDF_bydoc), byrow = TRUE), "CsparseMatrix")
-Matrix::writeMM(n_obs_matrix, file = here("output", "03_negbin_model", "n_obs_matrix.mtx"))
-Matrix::writeMM(doc_lengths_matrix, file = here("output", "03_negbin_model", "doc_lengths_matrix.mtx"))
+n_obs_matrix_train <- as(Matrix(n_obs_train, nrow = sum(doc_set_map == "train"), byrow = TRUE), "CsparseMatrix")
+doc_lengths_matrix_train <- as(Matrix(doc_lengths_train, nrow = sum(doc_set_map == "train"), byrow = TRUE), "CsparseMatrix")
+Matrix::writeMM(n_obs_matrix_train, file = here("output", "03_negbin_model", "n_obs_matrix_train.mtx"))
+Matrix::writeMM(doc_lengths_matrix_train, file = here("output", "03_negbin_model", "doc_lengths_matrix_train.mtx"))
+
+n_obs_matrix_val <- as(Matrix(n_obs_val, nrow = sum(doc_set_map != "train"), byrow = TRUE), "CsparseMatrix")
+doc_lengths_matrix_val <- as(Matrix(doc_lengths_val, nrow = sum(doc_set_map != "train"), byrow = TRUE), "CsparseMatrix")
+Matrix::writeMM(n_obs_matrix_val, file = here("output", "03_negbin_model", "n_obs_matrix_val.mtx"))
+Matrix::writeMM(doc_lengths_matrix_val, file = here("output", "03_negbin_model", "doc_lengths_matrix_val.mtx"))
 ```
 
 The design matrix is just the same thing repeated n times over. So here is it once:

@@ -276,6 +276,7 @@ getRowsFromCombos = function(combos){
     mutate(docID = combos$docID,
             paragraphID = combos$paragraphID,
             sentenceID = combos$sentenceID,
+            set = combos$set,
             sentence = combos$sentence,
             .before = dc)
 }
@@ -326,7 +327,12 @@ combosDF_old <- read_rds(here("output", "01_extract_pairs", "combosDF.rds"))
 
 doc_count_df <- combosDF_old |>
     group_by(docID) |>
-    count()
+    count() |>
+    mutate(docID = factor(
+            docID,
+            levels = sort(unique(docID))
+        )
+    )
 doc_counts <- doc_count_df$n
 names(doc_counts) <- doc_count_df$docID
 
@@ -337,9 +343,14 @@ combosDF <- combosDF |>
 rm(combosDF_old)
 ```
 
-
+```{r}
+doc_set_df <- combosDF |> group_by(docID, set) |> count()
+doc_set_map <- doc_set_df |> pull(set)
+names(doc_set_map) <- doc_set_df$docID
+```
 
 ```{r}
 write_csv(combosDF, here("output", "02_explore_preprocess", "combosDF.csv"))
 write_rds(combosDF, here("output", "02_explore_preprocess", "combosDF.rds"))
+write_rds(doc_set_map, here("output", "02_explore_preprocess", "doc_set_map.rds"))
 ```
