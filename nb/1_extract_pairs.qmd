@@ -81,3 +81,18 @@ getRowsFromCombos = function(combos){
 
 combosDF = lapply(comboList, getRowsFromCombos) %>% bind_rows
 ```
+
+
+```{r}
+library(dplyr)
+library(here)
+library(rjson)
+combosList = readRDS(here("output", "01_extract_pairs", "comboList.rds"))
+combosDF = readRDS(here("output", "01_extract_pairs", "combosDF.rds"))
+```
+
+```{r}
+library(readr)
+write_lines(toJSON(combosList), here("output", "01_extract_pairs", "comboList.json"))
+write_csv(combosDF, here("output", "01_extract_pairs", "combosDF.csv"))
+```

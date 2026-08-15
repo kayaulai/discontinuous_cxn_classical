@@ -11,13 +11,10 @@ library(tidyverse)
 library(tidycollo)
 library(udpipe)
 library(data.tree)
-
-
 ```
 
 Import data:
 ```{r}
-setwd("P:\\1. Current research\\Discontinuous cxn\\classical")
 conllu_test = udpipe::udpipe_read_conllu("lzh_kyoto-ud-test.conllu")
 conllu_train = udpipe::udpipe_read_conllu("lzh_kyoto-ud-train.conllu")
 conllu_dev = udpipe::udpipe_read_conllu("lzh_kyoto-ud-dev.conllu")
