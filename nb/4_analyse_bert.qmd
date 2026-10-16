@@ -1,0 +1,284 @@
+
+```{r}
+library(arrow)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(purrr)
+library(readr)
+library(ggplot2)
+```
+
+```{r}  
+corr_dir <- "output/04_bert"
+ 
+# All correlation files, matching e.g. corr_pmi_threshold_20_pearson.csv
+corr_files <- list.files(corr_dir, pattern = "^corr_.*\\.csv$", full.names = TRUE)
+ 
+# The ONE example-level parquet (word1, word2, sentence, label, and every
+# L<layer>_H<head>_i2j / _j2i attention channel) -- no association measure
+# column in it, since it covers all three measures at once.
+parquet_path <- "output/04_bert/attention_dataset.parquet"
+ 
+# The association-measure values, one row per pair, computed separately
+# (this is the file from the earlier corpus-linguistics step).
+measures_path <- "output/03_measures/exp1_measures_df.csv"
+ 
+# If exp1_measures_df.csv names its two word columns something other than
+# "word1"/"word2", set those here and they'll be renamed on load.
+measures_word1_col <- "dc"
+measures_word2_col <- "sfp"
+ 
+# Map each measure name (must match the <measure> token in the
+# corr_<measure>_threshold_<N>_<method>.csv filenames) to the corresponding
+# column name in exp1_measures_df.csv. EDIT the right-hand sides.
+measure_columns <- c(
+  pmi  = "pmi",
+  kld1 = "kld_norm_dc_cond_sfp",
+  kld2 = "kld_norm_sfp_cond_dc"
+)
+ 
+# The reference ("chosen") pair per measure, and the fraction threshold for
+# step 3. Character vector c(word1, word2), same orientation used when the
+# pairs were built in Python.
+# measures_df %>% filter(p_fisher_yates_reject) %>% summarise(quantile(pmi, probs = .25), quantile(kld_norm_dc_cond_sfp, probs = .25), quantile(kld_norm_sfp_cond_dc, probs = .25 na.rm = T))
+# View(measures_df %>% filter(!p_fisher_yates_reject, !is.na(word1), !is.na(word2)) %>% arrange(-pmi) %>% select(word2, word1, n, pmi))
+chosen_pairs <- list(
+  pmi  = c("豈", "乎"),
+  kld1 = c("不", "乎"),
+  kld2 = c("嘗", "也")
+)
+p_threshold <- 0.90  # "at least p% of the time"
+ 
+# Restrict step-3 candidates to pairs with no known label (i.e. the
+# "remaining"/unlabeled pairs from the Python pipeline, label == NA), rather
+# than also re-scoring the confident collocations/non-collocations
+# themselves. Set FALSE to score every pair in the parquet.
+only_unlabeled_candidates <- TRUE
+ 
+heatmap_dir <- file.path(corr_dir, "heatmaps")
+dir.create(heatmap_dir, showWarnings = FALSE, recursive = TRUE)
+ ```
+
+```{r}
+example_df <- read_parquet(parquet_path)
+ 
+measures_df <- read_csv(measures_path, show_col_types = FALSE) %>%
+  rename(word1 = all_of(measures_word1_col), word2 = all_of(measures_word2_col))
+ 
+channel_cols <- setdiff(names(example_df), c("sentence", "label", "word1", "word2"))
+ 
+# Pair-level channel means, computed once and reused for every measure.
+
+pair_channel_means <- example_df %>%
+  group_by(word1, word2) %>%
+  summarise(
+    across(all_of(channel_cols), ~ mean(.x, na.rm = TRUE)),
+    n_examples = n(),
+    label = first(label),
+    .groups = "drop"
+  ) %>%
+    select(-association_measure)
+```
+
+```{r}
+# Parse "corr_<measure>_threshold_<N>_<method>.csv" -> measure/threshold/method
+parse_corr_filename <- function(path) {
+  fname <- basename(path)
+  m <- str_match(fname, "^corr_(.+)_threshold_(\\d+)_(pearson|spearman)\\.csv$")
+  tibble(
+    path = path,
+    measure = m[, 2],
+    threshold = as.integer(m[, 3]),
+    method = m[, 4]
+  )
+}
+ 
+# Parse a channel name like "L5_H3_i2j" -> layer/head/direction
+parse_channel <- function(channel) {
+  m <- str_match(channel, "^L(\\d+)_H(\\d+)_(i2j|j2i)$")
+  tibble(layer = as.integer(m[, 2]), head = as.integer(m[, 3]), direction = m[, 4])
+}
+ 
+# Read one corr_*.csv and attach parsed layer/head/direction columns
+load_corr <- function(path) {
+  df <- read_csv(path, show_col_types = FALSE)
+  bind_cols(df, parse_channel(df$channel))
+}
+ 
+corr_meta <- map_dfr(corr_files, parse_corr_filename)
+if (nrow(corr_meta) == 0) {
+  warning("No files in '", corr_dir, "' matched the corr_<measure>_threshold_<N>_<method>.csv pattern.")
+}
+ 
+```
+
+
+```{r}
+plot_corr_heatmap <- function(path) {
+  if(str_detect(path, "dc_cond_sfp")){
+    title = expression(KLD[norm] * (NFP * "|" * FP))
+  } else if(str_detect(path, "sfp_cond_dc")){
+    title = expression(KLD[norm] * (FP * "|" * NFP))
+  } else {
+    title = "Attention-PMI correlations"
+  }
+
+  meta <- parse_corr_filename(path)
+  df <- load_corr(path)
+ 
+  p <- ggplot(df, aes(x = head, y = layer, fill = r)) +
+    geom_tile(color = "white", linewidth = 0.3) +
+    facet_wrap(
+      direction ~ .,
+      labeller = labeller(direction = c(i2j = "NFP \u2192 FP", j2i = "FP \u2192 NFP")),
+      ncol = 1
+    ) +
+    scale_fill_viridis_c(
+      limits = c(-1, 1), name = "r"
+    ) +
+    scale_x_continuous(breaks = sort(unique(df$head))) +
+    scale_y_continuous(breaks = sort(unique(df$layer))) +
+    labs(
+      title = title,
+      x = "Head", y = "Layer"
+    ) +
+    coord_fixed() +
+    theme_minimal(base_size = 11) +
+    theme(panel.grid = element_blank())
+ 
+  out_path <- file.path(heatmap_dir, str_replace(basename(path), "\\.csv$", ".png"))
+  ggsave(out_path, p, width = 2.5, height = 5, dpi = 150)
+  message("Saved heatmap: ", out_path)
+  p
+}
+ 
+heatmap_plots <- map(corr_files, plot_corr_heatmap)
+names(heatmap_plots) <- basename(corr_files)
+```
+
+
+```{r}
+# Top-N channels (max |r|) for a measure, optionally restricted to a
+# specific threshold and/or correlation method; otherwise searches across
+# all corr_<measure>_* files found for that measure.
+n_top_channels <- 10
+ 
+top_channels_for_measure <- function(measure_name, n = n_top_channels,
+                                      threshold_filter = NULL, method_filter = NULL) {
+  meta <- corr_meta %>% filter(measure == measure_columns[[measure_name]])
+  if (!is.null(threshold_filter)) meta <- meta %>% filter(threshold == threshold_filter)
+  if (!is.null(method_filter)) meta <- meta %>% filter(method == method_filter)
+  if (nrow(meta) == 0) stop("No corr files found for measure '", measure_name, "' with the given filters.")
+ 
+  all_corr <- map_dfr(meta$path, load_corr)
+  all_corr %>%
+    distinct(channel, .keep_all = TRUE) %>%  # in case the same channel appears in >1 file
+    slice_max(abs(r), n = n, with_ties = FALSE)
+}
+ 
+# Fit association_measure ~ top-N channels (multiple regression) for one
+# measure category, joining that measure's values in from
+# exp1_measures_df.csv. Note: the top-N channels are often themselves
+# correlated (neighbouring heads/layers tend to attend similarly), so
+# individual coefficients can be unstable even when the model's overall
+# fit and out-of-sample predictions remain reasonable -- if you need
+# interpretable per-head coefficients rather than just predictions, a
+# regularized fit (ridge/lasso via glmnet) would be more appropriate.
+fit_regression_for_measure <- function(measure_name, n = n_top_channels,
+                                        threshold_filter = NULL, method_filter = NULL) {
+  top <- top_channels_for_measure(measure_name, n, threshold_filter, method_filter)
+  channel_names <- top$channel
+ 
+  col <- measure_columns[[measure_name]]
+  if (is.null(col)) stop("No column mapping for measure '", measure_name, "' in measure_columns.")
+ 
+  pair_df <- pair_channel_means %>%
+    left_join(
+      measures_df %>% select(word1, word2, n, association_measure = all_of(col)),
+      by = c("word1", "word2")
+    ) %>%
+    filter(!is.na(association_measure)) %>%
+    filter(n >= 20) 
+ 
+  stopifnot(all(channel_names %in% names(pair_df)))
+  formula <- as.formula(paste("association_measure ~", paste(channel_names, collapse = " + ")))
+  model <- lm(formula, data = pair_df)
+ 
+  list(
+    measure = measure_name,
+    channels = channel_names,
+    r = top$r,
+    p_value = top$p_value,
+    model = model,
+    pair_df = pair_df
+  )
+}
+ 
+regressions <- map(names(measure_columns), fit_regression_for_measure)
+names(regressions) <- names(measure_columns)
+ 
+walk(regressions, function(res) {
+  cat(sprintf(
+    "\n=== %s : top %d channels (|r| range %.3f-%.3f, n_pairs = %d) ===\n",
+    res$measure, length(res$channels), min(abs(res$r)), max(abs(res$r)), nrow(res$pair_df)
+  ))
+  cat("Channels used:", paste(res$channels, collapse = ", "), "\n")
+  print(summary(res$model))
+})
+ 
+```
+
+
+```{r}
+extract_candidate_pairs <- function(reg_result, chosen_pair, pair_channel_means,
+                                     confidence_level = 0.95,
+                                     use_predicted_reference = FALSE,
+                                     only_unlabeled = TRUE) {
+  model <- reg_result$model
+ 
+  reference_value <- 2.07
+ 
+  candidates <- pair_channel_means %>%
+    filter(!(word1 == chosen_pair[1] & word2 == chosen_pair[2]))
+  if (only_unlabeled) {
+    candidates <- candidates %>% filter(is.na(label))
+  }
+  if (nrow(candidates) == 0) {
+    return(candidates %>% mutate(predicted_association = numeric(0), lower_ci = numeric(0), upper_ci = numeric(0)))
+  }
+ 
+  pred <- predict(model, newdata = candidates, interval = "confidence", level = confidence_level)
+ 
+  candidates %>%
+    mutate(
+      predicted_association = pred[, "fit"],
+      lower_ci = pred[, "lwr"],
+      upper_ci = pred[, "upr"]
+    ) %>%
+    select(word1, word2, n_examples, predicted_association, lower_ci, upper_ci) %>%
+    filter(lower_ci >= reference_value) %>%
+    arrange(desc(lower_ci))
+}
+ 
+detected_pairs <- imap(regressions, function(reg, measure_name) {
+  extract_candidate_pairs(
+    reg,
+    chosen_pair = chosen_pairs[[measure_name]],
+    pair_channel_means = pair_channel_means,
+    confidence_level = confidence_level,
+    only_unlabeled = only_unlabeled_candidates
+  )
+})
+ 
+iwalk(detected_pairs, function(df, measure_name) {
+  out_path <- file.path(corr_dir, sprintf("detected_pairs_%s.csv", measure_name))
+  write_csv(df, out_path)
+  message(sprintf(
+    "%s: %d pair(s) detected (lower %.0f%% CI of predicted association >= reference) -> %s",
+    measure_name, nrow(df), 100 * confidence_level, out_path
+  ))
+})
+ 
+detected_pairs
+```
