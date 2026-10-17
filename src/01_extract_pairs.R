@@ -83,6 +83,7 @@ main = function(){
   combosDF = lapply(comboList, getRowsFromCombos) %>% bind_rows
   write_rds(comboList, here("output", "01_extract_pairs", "comboList.rds"))
   write_rds(combosDF, here("output", "01_extract_pairs", "combosDF.rds"))
+  write_csv(combosDF, here("output", "01_extract_pairs", "combosDF.csv"))
 }
 
 

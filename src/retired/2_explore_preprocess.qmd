@@ -350,7 +350,7 @@ names(doc_set_map) <- doc_set_df$docID
 ```
 
 ```{r}
-write_csv(combosDF, here("output", "02_explore_preprocess", "combosDF.csv"))
-write_rds(combosDF, here("output", "02_explore_preprocess", "combosDF.rds"))
-write_rds(doc_set_map, here("output", "02_explore_preprocess", "doc_set_map.rds"))
+write_csv(combosDF, here("output", "retired", "02_explore_preprocess", "combosDF.csv"))
+write_rds(combosDF, here("output", "retired", "02_explore_preprocess", "combosDF.rds"))
+write_rds(doc_set_map, here("output", "retired", "02_explore_preprocess", "doc_set_map.rds"))
 ```

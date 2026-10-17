@@ -49,7 +49,7 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoModel, AutoTokenizer
 
-from data_classes import (
+from utils.data_classes import (
     Example,
     Pair,
     PairDataset,
@@ -281,7 +281,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 if __name__ == "__main__":
     # 1. Your existing data: confident collocations / non-collocations /
     #    remaining pairs, same format as collocation_classifier.py expects.
-    confident_pairs_df = pd.read_csv("../output/03_measures/exp1_selected_df_2tail.csv")
+    confident_pairs_df = pd.read_csv("../output/02_measures/exp1_selected_df_2tail.csv")
 
     confident_pairs_df_repel = confident_pairs_df.loc[confident_pairs_df["pmi"] < 0]
     confident_non_collocations = [(dc, sfp) for (i, (dc, sfp, n, pmi)) in confident_pairs_df_repel.iterrows()]
@@ -323,7 +323,7 @@ if __name__ == "__main__":
         + build_examples(non_confident_sentences, label=None)
     )
 
-    measures_df = pd.read_csv("../output/03_measures/exp1_measures_df.csv")
+    measures_df = pd.read_csv("../output/02_measures/exp1_measures_df.csv")
     measures_df = measures_df.loc[measures_df["n"] > N_THRESHOLD]
 
     association_measures = dict()
@@ -345,10 +345,10 @@ if __name__ == "__main__":
         batch_size=16,
         max_length=128,
     )
-    # save_table(df, f"../output/04_bert/attention_dataset.parquet")  # ~6 MB for 5299 real sentences
+    # save_table(df, f"../output/03_get_attention/attention_dataset.parquet")  # ~6 MB for 5299 real sentences
 
     pair_df = aggregate_by_pair(df)
-    pair_df.to_csv(f"../output/04_bert/attention_dataset_aggregated.csv") 
+    pair_df.to_csv(f"../output/03_get_attention/attention_dataset_aggregated.csv") 
     corr = correlate_with_association_measure(pair_df, method=METHOD)
     print(corr.head(20))
-    corr.to_csv(f"../output/04_bert/corr_{ASSOC_MEASURE_NAME}_threshold_{N_THRESHOLD}_{METHOD}.csv")  # ~6 MB for 5299 real sentences
+    corr.to_csv(f"../output/03_get_attention/corr_{ASSOC_MEASURE_NAME}_threshold_{N_THRESHOLD}_{METHOD}.csv")  # ~6 MB for 5299 real sentences

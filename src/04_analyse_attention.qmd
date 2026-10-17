@@ -10,7 +10,7 @@ library(ggplot2)
 ```
 
 ```{r}  
-corr_dir <- "output/04_bert"
+corr_dir <- "output/03_get_attention"
  
 # All correlation files, matching e.g. corr_pmi_threshold_20_pearson.csv
 corr_files <- list.files(corr_dir, pattern = "^corr_.*\\.csv$", full.names = TRUE)
@@ -18,11 +18,11 @@ corr_files <- list.files(corr_dir, pattern = "^corr_.*\\.csv$", full.names = TRU
 # The ONE example-level parquet (word1, word2, sentence, label, and every
 # L<layer>_H<head>_i2j / _j2i attention channel) -- no association measure
 # column in it, since it covers all three measures at once.
-parquet_path <- "output/04_bert/attention_dataset.parquet"
+parquet_path <- "output/03_get_attention/attention_dataset.parquet"
  
 # The association-measure values, one row per pair, computed separately
 # (this is the file from the earlier corpus-linguistics step).
-measures_path <- "output/03_measures/exp1_measures_df.csv"
+measures_path <- "output/02_measures/exp1_measures_df.csv"
  
 # If exp1_measures_df.csv names its two word columns something other than
 # "word1"/"word2", set those here and they'll be renamed on load.
@@ -56,7 +56,8 @@ p_threshold <- 0.90  # "at least p% of the time"
 # themselves. Set FALSE to score every pair in the parquet.
 only_unlabeled_candidates <- TRUE
  
-heatmap_dir <- file.path(corr_dir, "heatmaps")
+out_dir <- "output/04_analyse_attention"
+heatmap_dir <- file.path(out_dir, "heatmaps")
 dir.create(heatmap_dir, showWarnings = FALSE, recursive = TRUE)
  ```
 
@@ -274,7 +275,7 @@ detected_pairs <- imap(regressions, function(reg, measure_name) {
 })
  
 iwalk(detected_pairs, function(df, measure_name) {
-  out_path <- file.path(corr_dir, sprintf("detected_pairs_%s.csv", measure_name))
+  out_path <- file.path(out_dir, sprintf("detected_pairs_%s.csv", measure_name))
   write_csv(df, out_path)
   message(sprintf(
     "%s: %d pair(s) detected (lower %.0f%% CI of predicted association >= reference) -> %s",

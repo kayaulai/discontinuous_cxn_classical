@@ -69,7 +69,7 @@ selected_df = measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_rej
 selected_df_2tail = measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject_2tail, DP_norm < .99)
 selected_df_1tail_repel = measures_df %>% filter(!is.na(sfp), !is.na(dc), p_fisher_yates_reject_1tail_repel, DP_norm < .99)
 
-write_excel_csv(selected_df %>% select(dc, sfp, n, pmi), here("output", "03_measures", "exp1_selected_df.csv"))
-write_excel_csv(selected_df_2tail %>% select(dc, sfp, n, pmi), here("output", "03_measures", "exp1_selected_df_2tail.csv"))
-write_excel_csv(selected_df_1tail_repel %>% select(dc, sfp, n, pmi), here("output", "03_measures", "selected_df_1tail_repel.csv"))
-write_excel_csv(measures_df, here("output", "03_measures", "exp1_measures_df.csv"))
+write_excel_csv(selected_df %>% select(dc, sfp, n, pmi), here("output", "02_measures", "exp1_selected_df.csv"))
+write_excel_csv(selected_df_2tail %>% select(dc, sfp, n, pmi), here("output", "02_measures", "exp1_selected_df_2tail.csv"))
+write_excel_csv(selected_df_1tail_repel %>% select(dc, sfp, n, pmi), here("output", "02_measures", "selected_df_1tail_repel.csv"))
+write_excel_csv(measures_df, here("output", "02_measures", "exp1_measures_df.csv"))

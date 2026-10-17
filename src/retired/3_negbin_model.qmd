@@ -3,8 +3,8 @@ library(readr)
 library(Matrix)
 library(dplyr)
 library(here)
-combosDF <- read_rds(here("output", "02_explore_preprocess", "combosDF.rds"))
-doc_set_map <- read_rds(here("output", "02_explore_preprocess", "doc_set_map.rds"))
+combosDF <- read_rds(here("output", "retired", "02_explore_preprocess", "combosDF.rds"))
+doc_set_map <- read_rds(here("output", "retired", "02_explore_preprocess", "doc_set_map.rds"))
 doc_set_map <- doc_set_map[levels(combosDF$docID)] # harmonise with combosDF order
 ```
 
@@ -46,22 +46,22 @@ for(combosDF_doc in combosDF_bydoc){
     if(length(n_obs_val) %% 43656 != 0) stop()
 }
 
-write_rds(n_obs_train, here("output", "03_negbin_model", "n_obs_train.rds"))
-write_rds(doc_lengths_train, here("output", "03_negbin_model", "doc_lengths_train.rds"))
-write_rds(n_obs_val, here("output", "03_negbin_model", "n_obs_train.rds"))
-write_rds(doc_lengths_val, here("output", "03_negbin_model", "doc_lengths_train.rds"))
+write_rds(n_obs_train, here("output", "retired", "03_negbin_model", "n_obs_train.rds"))
+write_rds(doc_lengths_train, here("output", "retired", "03_negbin_model", "doc_lengths_train.rds"))
+write_rds(n_obs_val, here("output", "retired", "03_negbin_model", "n_obs_train.rds"))
+write_rds(doc_lengths_val, here("output", "retired", "03_negbin_model", "doc_lengths_train.rds"))
 ```
 
 ```{r}
 n_obs_matrix_train <- as(Matrix(n_obs_train, nrow = sum(doc_set_map == "train"), byrow = TRUE), "CsparseMatrix")
 doc_lengths_matrix_train <- as(Matrix(doc_lengths_train, nrow = sum(doc_set_map == "train"), byrow = TRUE), "CsparseMatrix")
-Matrix::writeMM(n_obs_matrix_train, file = here("output", "03_negbin_model", "n_obs_matrix_train.mtx"))
-Matrix::writeMM(doc_lengths_matrix_train, file = here("output", "03_negbin_model", "doc_lengths_matrix_train.mtx"))
+Matrix::writeMM(n_obs_matrix_train, file = here("output", "retired", "03_negbin_model", "n_obs_matrix_train.mtx"))
+Matrix::writeMM(doc_lengths_matrix_train, file = here("output", "retired", "03_negbin_model", "doc_lengths_matrix_train.mtx"))
 
 n_obs_matrix_val <- as(Matrix(n_obs_val, nrow = sum(doc_set_map != "train"), byrow = TRUE), "CsparseMatrix")
 doc_lengths_matrix_val <- as(Matrix(doc_lengths_val, nrow = sum(doc_set_map != "train"), byrow = TRUE), "CsparseMatrix")
-Matrix::writeMM(n_obs_matrix_val, file = here("output", "03_negbin_model", "n_obs_matrix_val.mtx"))
-Matrix::writeMM(doc_lengths_matrix_val, file = here("output", "03_negbin_model", "doc_lengths_matrix_val.mtx"))
+Matrix::writeMM(n_obs_matrix_val, file = here("output", "retired", "03_negbin_model", "n_obs_matrix_val.mtx"))
+Matrix::writeMM(doc_lengths_matrix_val, file = here("output", "retired", "03_negbin_model", "doc_lengths_matrix_val.mtx"))
 ```
 
 The design matrix is just the same thing repeated n times over. So here is it once:
@@ -74,8 +74,8 @@ X_onedoc <- model.matrix(~ 0 + dc + sfp_1 + sfp_2, combosDF_cartprod,
                     sfp_2 = contrasts(combosDF_cartprod$sfp_2, contrasts=FALSE))
                 )
 X_onedoc <- as(X_onedoc, "dgCMatrix")
-write_rds(X_onedoc, here("output", "03_negbin_model", "X_onedoc.rds"))
-Matrix::writeMM(X_onedoc, file = here("output", "03_negbin_model", "X_onedoc.mtx"))
+write_rds(X_onedoc, here("output", "retired", "03_negbin_model", "X_onedoc.rds"))
+Matrix::writeMM(X_onedoc, file = here("output", "retired", "03_negbin_model", "X_onedoc.mtx"))
 ```
 
 And everything else:
@@ -86,7 +86,7 @@ for(i in 1:length(levels(combosDF$docID)) - 1){
     X <- rbind(X, X_onedoc)
     if(nrow(X) %% 43656 != 0) stop()
 }
-write_rds(X, here("output", "03_negbin_model", "X.rds"))
+write_rds(X, here("output", "retired", "03_negbin_model", "X.rds"))
 ```
 
 ```{r}
@@ -133,8 +133,8 @@ for(combosDF_book in combosDF_bybook){
     book_lengths <- c(book_lengths, rep(combosDF_book$book_length[1], nrow(combosDF_gp)))
     if(length(n_obs) %% 43656 != 0) stop()
 }
-write_rds(n_obs, here("output", "03_negbin_model", "n_obs.rds"))
-write_rds(book_lengths, here("output", "03_negbin_model", "book_lengths.rds"))
+write_rds(n_obs, here("output", "retired", "03_negbin_model", "n_obs.rds"))
+write_rds(book_lengths, here("output", "retired", "03_negbin_model", "book_lengths.rds"))
 ```
 
 The design matrix is just the same thing repeated n times over. So here is it once:
@@ -147,7 +147,7 @@ X_onebook <- model.matrix(~ 0 + dc * sfp_1 * sfp_2, combosDF_cartprod,
                     sfp_2 = contrasts(combosDF_cartprod$sfp_2, contrasts=FALSE))
                 )
 X_onebook <- as(X_onebook, "dgCMatrix")
-write_rds(X, here("output", "03_negbin_model", "X_onebook.rds"))
+write_rds(X, here("output", "retired", "03_negbin_model", "X_onebook.rds"))
 
 ```
 
@@ -159,7 +159,7 @@ for(i in 1:(length(levels(combosDF$bookID)) - 1)){
     X <- rbind(X, X_onebook)
     if(nrow(X) %% 43656 != 0) stop()
 }
-write_rds(X, here("output", "03_negbin_model", "X.rds"))
+write_rds(X, here("output", "retired", "03_negbin_model", "X.rds"))
 ```
 
 ```{r}

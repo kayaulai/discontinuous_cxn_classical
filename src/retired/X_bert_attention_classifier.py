@@ -1033,14 +1033,14 @@ def run_pipeline_attention(
 
 import pandas as pd
 if __name__ == "__main__":
-    confident_pairs_df = pd.read_csv("../output/03_measures/exp1_selected_df_2tail.csv")
+    confident_pairs_df = pd.read_csv("../../output/02_measures/exp1_selected_df_2tail.csv")
 
     confident_pairs_df_repel = confident_pairs_df.loc[confident_pairs_df["pmi"] < 0]
     confident_non_collocations = [(dc, sfp) for (i, (dc, sfp, n, pmi)) in confident_pairs_df_repel.iterrows()]
     confident_pairs_df_attract = confident_pairs_df.loc[confident_pairs_df["pmi"] > 0]
     confident_collocations = [(dc, sfp) for (i, (dc, sfp, n, pmi)) in confident_pairs_df_attract.iterrows()]
 
-    with open(r"..\output\01_extract_pairs\combosDF.csv", "r", encoding="utf-8") as in_file:
+    with open(r"..\..\output\01_extract_pairs\combosDF.csv", "r", encoding="utf-8") as in_file:
         combo_df = pd.read_csv(in_file)
 
     

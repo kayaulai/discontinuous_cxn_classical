@@ -217,8 +217,8 @@ parameters <- list(
 
 ```{r}
 library(here)
-compile(here("cpp", "nb_lasso_stz_intercept.cpp"), clean = TRUE)
-dyn.load(dynlib(here("cpp", "nb_lasso_stz_intercept")))
+compile(here("src", "retired", "cpp", "nb_lasso_stz_intercept.cpp"), clean = TRUE)
+dyn.load(dynlib(here("src", "retired", "cpp", "nb_lasso_stz_intercept")))
 
 obj <- MakeADFun(
   data = data,
