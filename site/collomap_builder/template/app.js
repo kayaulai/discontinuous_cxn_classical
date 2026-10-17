@@ -18,12 +18,15 @@ const SITE_CONFIG = {
 };
 
 // A site built with build_site.py ships its data and settings in data.js. In that
-// "fixed" mode the data opens by itself and all upload features are hidden.
+// "fixed" mode the data opens by itself, and build_site.py strips every
+// byod-start/byod-end block (opening files, example data, templates) from the page.
 const FIXED = !!window.COLLOMAP_DATA;
 Object.assign(SITE_CONFIG, window.COLLOMAP_SITE || {});
 
 const DEFAULT_LABELS = { slot1: 'First word', slot2: 'Second word' };
+/* byod-start */
 const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+/* byod-end */
 
 /* =========================================================================
    STATE
@@ -107,6 +110,7 @@ function downloadText(filename, text) {
   URL.revokeObjectURL(url);
 }
 
+/* byod-start */
 const SAMPLE_CSV = `word1,word2,sym_score,asym_score,asym_score_2,attr_pair_construction,attr_w1_domain,attr_w2_domain
 strong,coffee,12.4,0.61,0.34,literal,intensity,beverage
 strong,tea,6.1,0.30,0.24,literal,intensity,beverage
@@ -149,6 +153,7 @@ strong,coffee,"The strong, bitter, over-brewed, lukewarm and faintly metallic-ta
 big,house,They finally bought a big house near the coast.,,,,,,,,
 學,習,學而時習之，不亦說乎,"To learn, and then to practice it in due time — is that not a joy?",lzh_kyoto-train-00042,論語,學而,,Analects 1.1,learn,practice
 有,朋,有朋自遠方來，不亦樂乎,"To have friends come from distant places — is that not delightful?",lzh_kyoto-train-00043,論語,,ctp:analects/xue-er,Analects 1.1,have,friends`;
+/* byod-end */
 
 /* -------------------------------------------------------------------------
    External corpus linking (CText / ctext.org)
@@ -233,6 +238,7 @@ function parseCSVText(text) {
   return parsed.data;
 }
 
+/* byod-start */
 // Decide what a table is, from its column names alone
 function detectKind(rows) {
   if (!rows.length) return null;
@@ -242,6 +248,7 @@ function detectKind(rows) {
   if (cols.has('text') && !hasScore) return 'examples';
   return 'pairs';
 }
+/* byod-end */
 
 // Builds App.examples: "word1|word2" (lowercased) -> array of example rows.
 // A separate joined table, not columns on the main pairs CSV, since a pair
@@ -1669,6 +1676,7 @@ function setExamples(rawRows) {
   return Array.from(App.examples.values()).reduce((s, arr) => s + arr.length, 0);
 }
 
+/* byod-start */
 const SAMPLE_TEXT = 'The strong coffee and heavy rain made for a big decision about a fresh start.\n學而時習之，不亦說乎。有朋自遠方來，不亦樂乎。';
 
 function loadSample() {
@@ -1762,10 +1770,12 @@ async function handleFiles(fileList) {
   if (pairs) parts.push('Click a word to see its partners.');
   notify([...parts, ...problems].join(' '), kind, kind !== 'info');
 }
+/* byod-end */
 
 /* =========================================================================
    DOWNLOAD / CITE / HELP
    ========================================================================= */
+/* byod-start */
 const TEMPLATE_PAIRS_CSV =
 `word1,word2,sym_score,asym_score,asym_score_2,attr_w1_theme,attr_w2_theme,attr_pair_kind
 strong,coffee,12.4,0.61,0.34,intensity,beverage,literal
@@ -1775,6 +1785,7 @@ const TEMPLATE_EXAMPLES_CSV =
 `word1,word2,text,translation,source_label
 strong,coffee,The strong coffee kept him awake.,,My notes p. 12
 `;
+/* byod-end */
 
 function downloadCurrentCsv() {
   const attrTypes = { w1: Object.keys(App.attrSchema.w1), w2: Object.keys(App.attrSchema.w2), pair: Object.keys(App.attrSchema.pair) };
@@ -1841,6 +1852,7 @@ function openAccordion(id) {
   acc.scrollIntoView({ block: 'nearest' });
 }
 
+/* byod-start */
 // file choosing
 $('data-file').addEventListener('change', e => { handleFiles(e.target.files); e.target.value = ''; });
 ['header-open', 'welcome-open'].forEach(id => $(id).addEventListener('click', () => $('data-file').click()));
@@ -1857,6 +1869,7 @@ window.addEventListener('drop', e => {
   e.preventDefault(); dragDepth = 0; $('drop-overlay').hidden = true;
   handleFiles(e.dataTransfer.files);
 });
+/* byod-end */
 
 // accordions
 document.querySelectorAll('.accordion-header').forEach(btn => {
@@ -1912,11 +1925,15 @@ $('nav-filters').addEventListener('click', needData(() => { showLeftPane(); open
 $('nav-download').addEventListener('click', needData(downloadCurrentCsv));
 $('nav-cite').addEventListener('click', e => { e.preventDefault(); openCiteModal(); });
 $('nav-help').addEventListener('click', e => { e.preventDefault(); openHelp(); });
+/* byod-start */
 $('welcome-help').addEventListener('click', e => { e.preventDefault(); openHelp('help-own-data'); });
+/* byod-end */
 $('footer-help-link').addEventListener('click', e => { e.preventDefault(); openHelp(); });
 $('footer-cite-link').addEventListener('click', e => { e.preventDefault(); openCiteModal(); });
+/* byod-start */
 $('dl-template-pairs').addEventListener('click', () => downloadText('word_pairs_template.csv', TEMPLATE_PAIRS_CSV));
 $('dl-template-examples').addEventListener('click', () => downloadText('example_sentences_template.csv', TEMPLATE_EXAMPLES_CSV));
+/* byod-end */
 
 // dialogs
 $('pair-modal-close').addEventListener('click', closePairDetail);

@@ -291,6 +291,16 @@ def plan_appearance(cfg, base_dir):
     return text + "\n", lang, copies
 
 # ---------------------------------------------------------------- building
+BYOD_BLOCKS = {  # bring-your-own-data parts of the template (file opening, example data, templates)
+    "html": re.compile(r"[ \t]*<!-- byod-start -->.*?<!-- byod-end -->[ \t]*\n", re.S),
+    "js": re.compile(r"[ \t]*/\* byod-start \*/.*?/\* byod-end \*/[ \t]*\n", re.S),
+}
+def strip_byod(text, kind):
+    """Remove the bring-your-own-data blocks: a built site only ever shows its own data."""
+    out, n = BYOD_BLOCKS[kind].subn("", text)
+    if not n: warn("No bring-your-own-data blocks found in the template's %s; nothing was removed." % kind)
+    return out
+
 def js_json(obj):
     return json.dumps(obj, ensure_ascii=False, indent=1).replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
@@ -371,7 +381,7 @@ def main():
     # ---- write the site ----
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    html = (tpl / "index.html").read_text(encoding="utf-8")
+    html = strip_byod((tpl / "index.html").read_text(encoding="utf-8"), "html")
     name = cfg.get("site_name") or "Collomap"
     html = html.replace('<body class="no-data">', '<body class="no-data fixed">')
     html = re.sub(r"<title>.*?</title>", "<title>%s – %s</title>" % (
@@ -400,7 +410,7 @@ def main():
     html = html.replace('<link rel="stylesheet" href="style.css">', '<link rel="stylesheet" href="style.css">\n<link rel="stylesheet" href="custom.css">')
     html = html.replace('<html lang="en">', '<html lang="%s">' % lang, 1)
     (out / "index.html").write_text(html, encoding="utf-8")
-    shutil.copyfile(tpl / "app.js", out / "app.js")
+    (out / "app.js").write_text(strip_byod((tpl / "app.js").read_text(encoding="utf-8"), "js"), encoding="utf-8")
 
     site = {"siteName": name, "datasetTitle": cfg.get("dataset_title", ""), "authors": cfg.get("authors", ""),
             "year": str(cfg.get("year", "") or ""), "url": cfg.get("url", ""), "license": cfg.get("license", ""),

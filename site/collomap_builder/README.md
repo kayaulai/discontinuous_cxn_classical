@@ -67,8 +67,25 @@ The builder warns if a colour is too pale to read against white.
 ## Updating the live site
 Edit the Excel file, run the same command again, re-upload the folder.
 
+## The site in this repo (`docs/`)
+`docs/` holds both experiments, published from that folder with GitHub Pages. `docs/index.html` is
+a hand-written page linking to the two. To rebuild them, run this from this folder:
+
+    python convert_exp1.py ../../output/02_measures/exp1_measures_df.csv ../../output/02_measures/exp1_selected_df.csv --out-dir exp1
+    python add_tags.py exp1/exp1_site_data.xlsx ../../output/02_measures/exp1_selected_df_tagged.csv
+    python build_site.py exp1/exp1_site_data_tagged.csv --config exp1/exp1_site.json --out ../../docs/exp1 --bundle-libs
+
+    python convert_exp2.py ../../output/03_precollation/exp2_selected_df.csv --out-dir exp2
+    python add_tags.py exp2/exp2_site_data.xlsx ../../output/03_precollation/exp2_selected_df_tagged.csv
+    python build_site.py exp2/exp2_site_data_tagged.csv --config exp2/exp2_site.json --out ../../docs/exp2 --bundle-libs
+
+Rebuild Experiment 2 after filling in the missing tags in `exp2_selected_df_tagged.csv`.
+
 ## Optional check
     pip install playwright && playwright install chromium
     python test_built_site.py my_site/index.html     # written for the bundled example data
 
-`template/` holds the site's HTML/CSS/JS; you normally never need to touch it.
+`template/` holds the site's HTML/CSS/JS; you normally never need to touch it. Opened directly, the
+template is a general "open your own file" site. `build_site.py` cuts every block marked
+`byod-start` / `byod-end` (file opening, drag and drop, example data, file templates and their help)
+out of the built page, so a built site only ever shows its own data.

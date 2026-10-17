@@ -57,7 +57,7 @@ SITE_SETTINGS = {
     "year": "2026",
     "url": "",
     "license": "",
-    "source_url": "",
+    "source_url": "https://github.com/kayaulai/discontinuous_cxn_classical",
     "about": ("Adverbs (ADV) and sentence-final particles (FP) in Late Archaic Chinese, after "
               "adverb–adverb and particle–particle collocations (such as 豈不 or 而已) were first "
               "merged into single units. "

@@ -86,5 +86,6 @@ quarto render src/05_analyse_attention.qmd --execute-dir .
 
 ## Other folders
 
-- `site/collomap_builder/` builds a static website for browsing the pairs; it has its own README.
+- `docs/` is the built website for browsing the Experiment 1 and Experiment 2 pairs (`docs/exp1/`, `docs/exp2/`), ready for GitHub Pages (serve from the `docs/` folder).
+- `site/collomap_builder/` builds that website; its README says how to rebuild it.
 - `src/retired/` and `output/retired/` hold old, half completed files that might not actually run properly any more.

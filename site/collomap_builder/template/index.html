@@ -25,15 +25,18 @@
       <a href="#" id="nav-help">Help</a>
     </nav>
     <div class="spacer"></div>
+    <!-- byod-start -->
     <button class="btn small" id="header-open" type="button">Open your own file…</button>
     <button class="btn small" id="header-sample" type="button">Example data</button>
     <input type="file" id="data-file" multiple accept=".csv,.xlsx,.xls,.txt,text/csv">
+    <!-- byod-end -->
   </div>
 </header>
 
 <div class="notice" id="notice" role="alert" hidden><div class="notice-text" id="notice-text"></div><button class="notice-close" id="notice-close" type="button" aria-label="Dismiss">×</button></div>
 
 
+<!-- byod-start -->
 <!-- Shown until some data is loaded -->
 <section id="welcome" class="welcome">
   <div class="welcome-inner">
@@ -53,6 +56,7 @@
     <p class="own-data">Want to use your own word pairs? <a href="#" id="welcome-help">See what the file should look like</a>.</p>
   </div>
 </section>
+<!-- byod-end -->
 
 <div class="layout" id="layout">
   <!-- LEFT: find words, word lists, filters, display options, data info -->
@@ -235,6 +239,7 @@
     </ul>
     <p>Use the “Distance shows” buttons above the picture to choose which of the two decides how far each partner sits from the middle.</p>
 
+    <!-- byod-start -->
     <div id="help-own-section">
     <h3 id="help-own-data">Using your own data</h3>
     <p>Prepare a table in Excel (or any spreadsheet program), with one row per word pair, then click <strong>“Open your own file…”</strong> or drag the file onto the page. Both <code>.xlsx</code> and <code>.csv</code> files work. If you save as CSV, choose <strong>“CSV UTF-8”</strong> so that Chinese and other non-English characters survive.</p>
@@ -263,10 +268,13 @@
     </table>
     <div class="btn-row"><button class="btn small" id="dl-template-examples" type="button">Download a template for example sentences</button></div>
     </div>
+    <!-- byod-end -->
   </div>
 </div>
 
+<!-- byod-start -->
 <div id="drop-overlay" hidden><div>Drop your file to open it</div></div>
+<!-- byod-end -->
 
 <script src="app.js"></script>
 </body>

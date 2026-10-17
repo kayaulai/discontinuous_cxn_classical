@@ -51,7 +51,7 @@ SITE_SETTINGS = {
     "year": "2026",
     "url": "",
     "license": "",
-    "source_url": "",
+    "source_url": "https://github.com/kayaulai/discontinuous_cxn_classical",
     "about": ("Adverbs (ADV) and sentence-final particles (FP) in Late Archaic Chinese. "
               "Mutual strength is pointwise mutual information (PMI). The one-way pulls are "
               "normalised Kullback-Leibler divergences: when you look at an adverb, the distance "
