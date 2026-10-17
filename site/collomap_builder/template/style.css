@@ -161,6 +161,7 @@ body:not(.no-data) #welcome { display: none; }
 }
 .chip:hover { border-color: var(--accent); color: var(--accent); }
 .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.chip .count { margin-left: 6px; font-size: 12px; font-weight: 400; opacity: 0.7; }
 
 /* ---------- word tags ---------- */
 .tag-list { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
@@ -254,7 +255,12 @@ body:not(.no-data) #welcome { display: none; }
 .collocate-table th.sortable:hover { color: var(--accent); }
 .collocate-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .collocate-table td.word { font-size: 16px; font-weight: 600; cursor: pointer; }
-.collocate-table tbody tr:nth-child(even) td { background: #fafbfc; }
+.collocate-table tbody tr.alt td { background: #fafbfc; }
+/* a partner's tags sit on their own line, attached to the partner's row */
+.collocate-table tr.has-tags td { border-bottom: none; padding-bottom: 2px; }
+.collocate-table tr.tag-row td { padding: 0 6px 8px; }
+.pair-tag-mini { display: inline-block; font-size: 12px; line-height: 1.5; padding: 0 8px; margin: 0 4px 4px 0; border-radius: 10px; background: var(--accent-dim); color: var(--accent-dark); }
+.pair-attr-chip .count { margin-left: 6px; font-size: 12px; opacity: 0.7; }
 .collocate-table tbody tr:hover td { background: var(--accent-dim); }
 .collocate-table td.num { text-align: right; color: var(--muted); }
 .collocate-table th.num { text-align: right; }

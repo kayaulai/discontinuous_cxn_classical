@@ -23,6 +23,7 @@ WHAT THE EXCEL FILE LOOKS LIKE
                     attr_w1_<name>      optional tag about the first word   (becomes a filter)
                     attr_w2_<name>      optional tag about the second word
                     attr_pair_<name>    optional tag about the pair
+                    (a tag cell can hold several tags separated by |, e.g. "Focus | Additive")
   Examples columns: word1, word2, text  (required)
                     translation, trans1, trans2, source_label, work, chapter, ctext_urn, ud_sent_id
 
@@ -36,7 +37,9 @@ SETTINGS FILE (JSON; every key is optional)
                     citation / footer details
   about             a few sentences about the dataset ("\\n\\n" starts a new paragraph)
   group_names       {"first": "Adverb", "second": "Final particle"}
-  default_distance  "asym" (one-way pull) or "sym" (mutual strength)
+  default_distance  which strength sets the distances when a word is in focus (visitors can
+                    still switch): "one-way" (one-way pull) or "mutual" (mutual strength);
+                    "asym" / "sym" also work
   default_spacing   "rank" (even steps), "raw" (true scale) or "log"
   sample_text       passage pre-filled in the "try it on your own text" box
   lang              language code of the page, e.g. "en" (default), "zh-Hant", "bo"
@@ -339,7 +342,9 @@ def main():
     for k in cfg:
         if k not in known and not k.startswith("_"):
             warn('Unknown setting "%s" ignored (typo?). Known settings: %s' % (k, ", ".join(sorted(known))))
-    if cfg.get("default_distance") not in (None, "", "sym", "asym"): die('default_distance must be "sym" or "asym"')
+    dd = {"one-way": "asym", "mutual": "sym"}.get(cfg.get("default_distance"), cfg.get("default_distance"))
+    if dd not in (None, "", "sym", "asym"): die('default_distance must be "one-way" or "mutual" (or "asym" / "sym")')
+    if dd: cfg["default_distance"] = dd
     if cfg.get("default_spacing") not in (None, "", "rank", "raw", "log"): die('default_spacing must be "rank", "raw" or "log"')
 
     base_dir = Path(a.config).resolve().parent if a.config else Path.cwd()

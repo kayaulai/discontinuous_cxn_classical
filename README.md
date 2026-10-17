@@ -1,6 +1,6 @@
-# Discontinuous constructions in Classical Chinese
+# Code and data for `Mapping the particle frames of Ancient Chinese: Statistical extraction and semantic analysis of an elusive discontinuous construction' 
 
-Code and outputs for a study of discontinuous constructions in Classical Chinese: pairs of a pre-verbal **adverb** (`dc` in the code) and a sentence-final **particle** (`sfp`) that depend on the same root, as in 豈 … 哉 or 必 … 矣. The analyses are:
+Code and outputs for a study of particle frames in Classical Chinese: pairs of a pre-verbal **adverb** (`dc` in the code) and a sentence-final **particle** (`sfp`) that depend on the same root, as in 豈 … 哉 or 必 … 矣. The analyses are:
 
 - **Experiment 1**: association measures between adverbs and final particles.
 - **Experiment 2**: the same, after first merging adverb–adverb and particle–particle collocations into single units (pre-collation).

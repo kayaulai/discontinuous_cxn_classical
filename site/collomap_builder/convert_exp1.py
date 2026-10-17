@@ -6,7 +6,7 @@ convert_exp1.py  --  turn the experiment-1 measures into the Excel file the site
 
 reads  the measures file (every adverb / final-particle pair, many columns)
        the selected file (the pairs to put on the site; only its dc and sfp columns are used)
-writes exp1_site_data.xlsx   sheet "pairs": ADV, FP, PMI, ADV->FP, FP->ADV, Frequency
+writes exp1_site_data.xlsx   sheet "pairs": Non-final particle, Final particle, PMI, the two one-way pulls, Frequency
        exp1_site.json        the settings file for build_site.py (names, columns, fonts, colours)
 
 and prints the command that builds the website:
@@ -21,16 +21,16 @@ from pathlib import Path
 
 # ============================================================ SETTINGS: edit here
 # the two slots, as they are called on the site
-SLOT1_NAME = "ADV"            # first word of a pair  (column "dc" in the measures file)
-SLOT2_NAME = "FP"             # second word of a pair (column "sfp" in the measures file)
+SLOT1_NAME = "Non-final particle"            # first word of a pair  (column "dc" in the measures file)
+SLOT2_NAME = "Final particle"             # second word of a pair (column "sfp" in the measures file)
 
 # columns of the measures file
 COL_SLOT1 = "dc"
 COL_SLOT2 = "sfp"
 COL_SYM = "pmi"                       # mutual strength (symmetric)
 # One-way pulls.  Each is the strength with which the word you are LOOKING AT predicts its partner:
-#   kld_norm_sfp_cond_dc  = how much knowing the adverb narrows down the particle   (ADV -> FP)
-#   kld_norm_dc_cond_sfp  = how much knowing the particle narrows down the adverb   (FP -> ADV)
+#   kld_norm_sfp_cond_dc  = how much knowing the adverb narrows down the particle   (NFP -> FP)
+#   kld_norm_dc_cond_sfp  = how much knowing the particle narrows down the adverb   (FP -> NFP)
 # On the site, click an adverb and the distances use the first one; click a particle and they use the second.
 # If you read the two the other way round, simply swap these two lines.
 COL_ASYM_1TO2 = "kld_norm_sfp_cond_dc"
@@ -46,21 +46,21 @@ HEAD_FREQ = "Frequency"
 # the website's own settings (written to the .json file; see README.md for all options)
 SITE_SETTINGS = {
     "site_name": "Collomap",
-    "dataset_title": "Adverb – final particle collocations in Late Archaic Chinese",
-    "authors": "Lai, Kay",
+    "dataset_title": "Mapping the particle frames of Ancient Chinese: Statistical extraction and semantic analysis of an elusive discontinuous construction - Experiment 1",
+    "authors": "Lai, Ryan Ka Yau",
     "year": "2026",
     "url": "",
     "license": "",
     "source_url": "https://github.com/kayaulai/discontinuous_cxn_classical",
-    "about": ("Adverbs (ADV) and sentence-final particles (FP) in Late Archaic Chinese. "
+    "about": ("Non-final and final particles in Late Archaic Chinese. "
               "Mutual strength is pointwise mutual information (PMI). The one-way pulls are "
-              "normalised Kullback-Leibler divergences: when you look at an adverb, the distance "
-              "shows how strongly it narrows down which particle follows; when you look at a "
-              "particle, how strongly it narrows down the adverb."),
+              "normalised Kullback-Leibler divergences: when you look at a non-final particle, the "
+              "distance shows how strongly it narrows down which final particle follows; when you "
+              "look at a final particle, how strongly it narrows down the non-final particle."),
     "group_names": {"first": SLOT1_NAME, "second": SLOT2_NAME},
     "default_distance": "asym",
     "default_spacing": "rank",
-    "sample_text": "豈不誠大丈夫哉。蓋有之矣，我未之見也。",
+    "sample_text": "蓋有之矣，我未之見也。",
     "lang": "zh-Hant",
     "font_family": "Helvetica, Arial, sans-serif",
     "word_font_family": "'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans TC', sans-serif",

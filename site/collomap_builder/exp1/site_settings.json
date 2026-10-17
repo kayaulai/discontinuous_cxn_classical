@@ -1,0 +1,28 @@
+{
+  "site_name": "Collomap",
+  "dataset_title": "Non-final particle-final particle frames in Late Archaic Chinese - Experiment 1",
+  "authors": "Lai, Ryan Ka Yau",
+  "year": "2026",
+  "url": "",
+  "license": "",
+  "source_url": "https://github.com/kayaulai/discontinuous_cxn_classical",
+  "about": "Non-final and final particles in Late Archaic Chinese. Mutual strength is pointwise mutual information (PMI). The one-way pulls are normalised Kullback-Leibler divergences: when you look at a non-final particle, the distance shows how strongly it narrows down which final particle follows; when you look at a final particle, how strongly it narrows down the non-final particle.",
+  "group_names": {
+    "first": "Non-final particle",
+    "second": "Final particle"
+  },
+  "_default_distance": "Which strength sets the distances when a word is in focus: \"one-way\" (the KLDs) or \"mutual\" (PMI). Visitors can still switch on the site.",
+  "default_distance": "one-way",
+  "_default_spacing": "\"rank\" (even steps), \"raw\" (true scale) or \"log\".",
+  "default_spacing": "rank",
+  "sample_text": "蓋有之矣，我未之見也。",
+  "lang": "zh-Hant",
+  "font_family": "Helvetica, Arial, sans-serif",
+  "word_font_family": "'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans TC', sans-serif",
+  "word_line_height": 1.8,
+  "colors": {
+    "first": "#1a64a8",
+    "second": "#b4500a",
+    "accent": "#1a64a8"
+  }
+}

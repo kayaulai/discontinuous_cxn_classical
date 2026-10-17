@@ -1,15 +1,15 @@
 {
   "site_name": "Collomap",
-  "dataset_title": "Adverb – final particle collocations in Late Archaic Chinese",
-  "authors": "Lai, Kay",
+  "dataset_title": "Non-final particle – final particle collocations in Late Archaic Chinese",
+  "authors": "Lai, Ryan Ka Yau",
   "year": "2026",
   "url": "",
   "license": "",
   "source_url": "https://github.com/kayaulai/discontinuous_cxn_classical",
-  "about": "Adverbs (ADV) and sentence-final particles (FP) in Late Archaic Chinese. Mutual strength is pointwise mutual information (PMI). The one-way pulls are normalised Kullback-Leibler divergences: when you look at an adverb, the distance shows how strongly it narrows down which particle follows; when you look at a particle, how strongly it narrows down the adverb.",
+  "about": "Non-final and final particles in Late Archaic Chinese. Mutual strength is pointwise mutual information (PMI). The one-way pulls are normalised Kullback-Leibler divergences: when you look at a non-final particle, the distance shows how strongly it narrows down which final particle follows; when you look at a final particle, how strongly it narrows down the non-final particle.",
   "group_names": {
-    "first": "ADV",
-    "second": "FP"
+    "first": "Non-final particle",
+    "second": "Final particle"
   },
   "default_distance": "asym",
   "default_spacing": "rank",
@@ -24,10 +24,10 @@
     "accent": "#1a64a8"
   },
   "columns": {
-    "ADV": "word1",
-    "FP": "word2",
+    "Non-final particle": "word1",
+    "Final particle": "word2",
     "PMI": "sym_score",
-    "ADV -> FP": "asym_score",
-    "FP -> ADV": "asym_score_2"
+    "Non-final particle -> Final particle": "asym_score",
+    "Final particle -> Non-final particle": "asym_score_2"
   }
 }

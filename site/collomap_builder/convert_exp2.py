@@ -8,7 +8,7 @@ reads  the selected file from src/03_precollation.Rmd (one row per selected pair
        in the same file: dc, sfp, n, pmi, kld_norm_dc_cond_sfp, kld_norm_sfp_cond_dc).
        Unlike experiment 1 there is no separate measures file.  Adverbs and particles may be
        collated units of two characters (e.g. 豈不, 而已).
-writes exp2_site_data.xlsx   sheet "pairs": ADV, FP, PMI, ADV->FP, FP->ADV, Frequency
+writes exp2_site_data.xlsx   sheet "pairs": Non-final particle, Final particle, PMI, the two one-way pulls, Frequency
        exp2_site.json        the settings file for build_site.py (names, columns, fonts, colours)
 
 and prints the command that builds the website:
@@ -29,16 +29,16 @@ from convert_exp1 import die, read_csv, need, number
 
 # ============================================================ SETTINGS: edit here
 # the two slots, as they are called on the site
-SLOT1_NAME = "ADV"            # first word of a pair  (column "dc")
-SLOT2_NAME = "FP"             # second word of a pair (column "sfp")
+SLOT1_NAME = "Non-final particle"            # first word of a pair  (column "dc")
+SLOT2_NAME = "Final particle"             # second word of a pair (column "sfp")
 
 # columns of the selected file
 COL_SLOT1 = "dc"
 COL_SLOT2 = "sfp"
 COL_SYM = "pmi"                       # mutual strength (symmetric)
 # One-way pulls, read the same way as in convert_exp1.py:
-#   kld_norm_sfp_cond_dc  = how much knowing the adverb narrows down the particle   (ADV -> FP)
-#   kld_norm_dc_cond_sfp  = how much knowing the particle narrows down the adverb   (FP -> ADV)
+#   kld_norm_sfp_cond_dc  = how much knowing the adverb narrows down the particle   (NFP -> FP)
+#   kld_norm_dc_cond_sfp  = how much knowing the particle narrows down the adverb   (FP -> NFP)
 COL_ASYM_1TO2 = "kld_norm_sfp_cond_dc"
 COL_ASYM_2TO1 = "kld_norm_dc_cond_sfp"
 COL_FREQ = "n"                        # raw co-occurrence count, kept in the Excel file for reference
@@ -52,23 +52,23 @@ HEAD_FREQ = "Frequency"
 # the website's own settings (written to the .json file; see README.md for all options)
 SITE_SETTINGS = {
     "site_name": "Collomap",
-    "dataset_title": "Adverb – final particle collocations in Late Archaic Chinese (pre-collated)",
-    "authors": "Lai, Kay",
+    "dataset_title": "Mapping the particle frames of Ancient Chinese: Statistical extraction and semantic analysis of an elusive discontinuous construction - Experiment 2",
+    "authors": "Lai, Ryan Ka Yau",
     "year": "2026",
     "url": "",
     "license": "",
     "source_url": "https://github.com/kayaulai/discontinuous_cxn_classical",
-    "about": ("Adverbs (ADV) and sentence-final particles (FP) in Late Archaic Chinese, after "
-              "adverb–adverb and particle–particle collocations (such as 豈不 or 而已) were first "
+    "about": ("Non-final and final particles in Late Archaic Chinese, after collocations among "
+              "non-final particles and among final particles (such as 豈不 or 而已) were first "
               "merged into single units. "
               "Mutual strength is pointwise mutual information (PMI). The one-way pulls are "
-              "normalised Kullback-Leibler divergences: when you look at an adverb, the distance "
-              "shows how strongly it narrows down which particle follows; when you look at a "
-              "particle, how strongly it narrows down the adverb."),
+              "normalised Kullback-Leibler divergences: when you look at a non-final particle, the "
+              "distance shows how strongly it narrows down which final particle follows; when you "
+              "look at a final particle, how strongly it narrows down the non-final particle."),
     "group_names": {"first": SLOT1_NAME, "second": SLOT2_NAME},
     "default_distance": "asym",
     "default_spacing": "rank",
-    "sample_text": "豈不誠大丈夫哉。蓋有之矣，我未之見也。",
+    "sample_text": "有朋自遠方來，不亦樂乎？",
     "lang": "zh-Hant",
     "font_family": "Helvetica, Arial, sans-serif",
     "word_font_family": "'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans TC', sans-serif",

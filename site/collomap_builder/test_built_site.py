@@ -68,7 +68,7 @@ with sync_playwright() as p:
     pg.keyboard.press("Escape")
     pg.click("#nav-cite"); pg.wait_for_timeout(200)
     c = ev("document.getElementById('cite-block').textContent")
-    check("citation filled in from settings (the web address appears once the site is online)", "Lai, Kay. 2026. Adverb" in c and "[Author]" not in c and "[Dataset title]" not in c, c)
+    check("citation filled in from settings (the web address appears once the site is online)", "Lai, Ryan Ka Yau. 2026. Adverb" in c and "[Author]" not in c and "[Dataset title]" not in c, c)
     pg.keyboard.press("Escape")
     check("footer shows the licence", "CC BY 4.0" in ev("document.getElementById('footer-license').textContent"))
 

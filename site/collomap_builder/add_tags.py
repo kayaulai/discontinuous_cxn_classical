@@ -31,6 +31,9 @@ from pathlib import Path
 DATA_HEADINGS = {
     "ADV": "word1", "FP": "word2", "PMI": "sym_score",
     "ADV -> FP": "asym_score", "FP -> ADV": "asym_score_2",
+    "NFP": "word1", "NFP -> FP": "asym_score", "FP -> NFP": "asym_score_2",
+    "Non-final particle": "word1", "Final particle": "word2",
+    "Non-final particle -> Final particle": "asym_score", "Final particle -> Non-final particle": "asym_score_2",
     # a data file that already uses the standard names works too:
     "word1": "word1", "word2": "word2", "sym_score": "sym_score",
     "asym_score": "asym_score", "asym_score_2": "asym_score_2",

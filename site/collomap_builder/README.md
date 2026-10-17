@@ -73,13 +73,16 @@ a hand-written page linking to the two. To rebuild them, run this from this fold
 
     python convert_exp1.py ../../output/02_measures/exp1_measures_df.csv ../../output/02_measures/exp1_selected_df.csv --out-dir exp1
     python add_tags.py exp1/exp1_site_data.xlsx ../../output/02_measures/exp1_selected_df_tagged.csv
-    python build_site.py exp1/exp1_site_data_tagged.csv --config exp1/exp1_site.json --out ../../docs/exp1 --bundle-libs
+    python build_site.py exp1/exp1_site_data_tagged.csv --config exp1/site_settings.json --out ../../docs/exp1 --bundle-libs
 
     python convert_exp2.py ../../output/03_precollation/exp2_selected_df.csv --out-dir exp2
     python add_tags.py exp2/exp2_site_data.xlsx ../../output/03_precollation/exp2_selected_df_tagged.csv
-    python build_site.py exp2/exp2_site_data_tagged.csv --config exp2/exp2_site.json --out ../../docs/exp2 --bundle-libs
+    python build_site.py exp2/exp2_site_data_tagged.csv --config exp2/site_settings.json --out ../../docs/exp2 --bundle-libs
 
-Rebuild Experiment 2 after filling in the missing tags in `exp2_selected_df_tagged.csv`.
+The site's settings (title, about text, group names, default distance, colours, ...) live in
+`exp1/site_settings.json` and `exp2/site_settings.json`. Edit those by hand and rebuild. The
+`*_site.json` files the converters write are not used for `docs/`, since the tagged CSV already
+has the standard column names. `default_distance` is `"one-way"` or `"mutual"`.
 
 ## Optional check
     pip install playwright && playwright install chromium

@@ -5,7 +5,7 @@
 const SITE_CONFIG = {
   siteName: 'Collomap',
   datasetTitle: '',   // e.g. 'Collocations in pre-Qin and Han philosophical texts'
-  authors: '',        // e.g. 'Lai, Kay'
+  authors: '',        // e.g. 'Lai, Ryan Ka Yau'
   year: '',           // defaults to the current year
   url: '',            // defaults to this page's address when served over the web
   license: '',        // shown in the footer, e.g. 'Data: CC BY 4.0'
@@ -35,7 +35,7 @@ const App = {
   rows: [],                 // parsed pairs
   slot1: new Map(),         // word -> {id,label,slot,attrs:{type:Set},edges:[rowIdx]}
   slot2: new Map(),
-  attrSchema: { w1:{}, w2:{}, pair:{} }, // type -> Set(values)
+  attrSchema: { w1:{}, w2:{}, pair:{} }, // type -> Map(value -> number of pairs with it)
   filters: { w1:{}, w2:{}, pair:{} },    // type -> Set(selected values)
   labels: { ...DEFAULT_LABELS },         // what the two groups of words are called on screen
   datasetName: '',
@@ -298,10 +298,12 @@ function buildIndices(rawRows) {
     return map.get(word);
   };
 
-  const addAttr = (schemaScope, type, value) => {
-    if (!attrSchema[schemaScope][type]) attrSchema[schemaScope][type] = new Set();
-    attrSchema[schemaScope][type].add(value);
+  const addAttr = (schemaScope, type, values) => {  // schema: type -> Map(value -> number of pairs)
+    const counts = attrSchema[schemaScope][type] ||= new Map();
+    values.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
   };
+  // A tag cell can hold several tags separated by "|": "Modal | Focus" is two tags.
+  const splitTags = cell => String(cell || '').split('|').map(s => s.trim()).filter(Boolean);
 
   rawRows.forEach((r, idx) => {
     const word1 = (r.word1 || '').trim();
@@ -313,18 +315,13 @@ function buildIndices(rawRows) {
 
     const rowAttrs = { w1:{}, w2:{}, pair:{} };
     Object.keys(r).forEach(col => {
-      if (col.startsWith('attr_pair_')) {
-        const type = col.slice('attr_pair_'.length);
-        const val = (r[col]||'').trim();
-        if (val) { rowAttrs.pair[type] = val; addAttr('pair', type, val); }
-      } else if (col.startsWith('attr_w1_')) {
-        const type = col.slice('attr_w1_'.length);
-        const val = (r[col]||'').trim();
-        if (val) { rowAttrs.w1[type] = val; addAttr('w1', type, val); }
-      } else if (col.startsWith('attr_w2_')) {
-        const type = col.slice('attr_w2_'.length);
-        const val = (r[col]||'').trim();
-        if (val) { rowAttrs.w2[type] = val; addAttr('w2', type, val); }
+      for (const scope of ['pair', 'w1', 'w2']) {
+        const prefix = 'attr_' + scope + '_';
+        if (!col.startsWith(prefix)) continue;
+        const type = col.slice(prefix.length);
+        const vals = splitTags(r[col]);
+        if (vals.length) { rowAttrs[scope][type] = vals; addAttr(scope, type, vals); }
+        break;
       }
     });
 
@@ -334,8 +331,8 @@ function buildIndices(rawRows) {
     const n2 = ensureWord(slot2, word2, 'slot2');
     n1.edges.push(idx);
     n2.edges.push(idx);
-    Object.entries(rowAttrs.w1).forEach(([t,v]) => { (n1.attrs[t] ||= new Set()).add(v); });
-    Object.entries(rowAttrs.w2).forEach(([t,v]) => { (n2.attrs[t] ||= new Set()).add(v); });
+    Object.entries(rowAttrs.w1).forEach(([t,vs]) => { vs.forEach(v => (n1.attrs[t] ||= new Set()).add(v)); });
+    Object.entries(rowAttrs.w2).forEach(([t,vs]) => { vs.forEach(v => (n2.attrs[t] ||= new Set()).add(v)); });
   });
 
   return { rows, slot1, slot2, attrSchema };
@@ -363,8 +360,8 @@ function pairPassesFilters(rowAttrsPair) {
   for (const type of Object.keys(filt)) {
     const selected = filt[type];
     if (!selected || selected.size === 0) continue;
-    const val = rowAttrsPair[type];
-    if (!val || !selected.has(val)) return false;
+    const vals = rowAttrsPair[type];
+    if (!vals || !vals.some(v => selected.has(v))) return false; // any of the pair's tags; AND across types
   }
   return true;
 }
@@ -374,6 +371,15 @@ function edgePasses(rowIdx) {
   const n1 = App.slot1.get(row.word1);
   const n2 = App.slot2.get(row.word2);
   return wordPassesFilters(n1,'w1') && wordPassesFilters(n2,'w2') && pairPassesFilters(row.attrs.pair);
+}
+
+// Whether a word stays lit when no word is in focus (overview picture, word lists).
+// Pair tags belong to pairs, not words, so with a pair filter on, a word
+// matches when at least one of its pairs does.
+function wordShownByFilters(node, scope) {
+  if (!wordPassesFilters(node, scope)) return false;
+  const pairFilterOn = Object.values(App.filters.pair).some(set => set && set.size);
+  return !pairFilterOn || node.edges.some(edgePasses);
 }
 
 /* =========================================================================
@@ -399,11 +405,14 @@ function renderFilterPanel() {
     if (!types.length) return;
     groups += `<div class="filter-group"><div class="filter-group-label">${escapeHtml(label)}</div>`;
     types.forEach(type => {
-      const values = Array.from(App.attrSchema[scope][type]).sort();
+      // commonest tags first; ties in alphabetical order
+      const values = Array.from(App.attrSchema[scope][type])
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
       groups += `<div class="filter-type"><div class="filter-type-name">${escapeHtml(pretty(type))}</div><div class="filter-values">`;
-      values.forEach(v => {
+      values.forEach(([v, count]) => {
         const active = App.filters[scope][type] && App.filters[scope][type].has(v);
-        groups += `<button type="button" class="chip ${active ? 'active' : ''}" aria-pressed="${active ? 'true' : 'false'}" data-scope="${scope}" data-type="${escapeAttr(type)}" data-value="${escapeAttr(v)}">${escapeHtml(v)}</button>`;
+        groups += `<button type="button" class="chip ${active ? 'active' : ''}" aria-pressed="${active ? 'true' : 'false'}" data-scope="${scope}" data-type="${escapeAttr(type)}" data-value="${escapeAttr(v)}" title="${count} pair${count === 1 ? '' : 's'}">`
+          + `${escapeHtml(v)}<span class="count">${count}</span></button>`;
       });
       groups += `</div></div>`;
     });
@@ -458,7 +467,7 @@ function renderWordLists() {
     if (!words.length) return `<p class="empty-note">${q ? 'No match.' : '–'}</p>`;
 
     let html = shown.map(n => {
-      const passes = wordPassesFilters(n, scope);
+      const passes = wordShownByFilters(n, scope);
       const isFocal = App.focal && App.focal.id === n.id;
       const cls = ['word-tag', slotClass[scope]];
       if (!passes) cls.push('dimmed');
@@ -562,17 +571,17 @@ function initCy() {
           'font-size': () => LABEL_BASE.normal * labelScale(),
           'color': '#1c2330',
           'text-valign': 'bottom',
-          'text-margin-y': 6,
+          'text-margin-y': 1,
           'background-color': COL_BLUE,
           'width': 'data(size)',
           'height': 'data(size)',
-          'border-width': 1.5,
+          'border-width': 1,
           'border-color': '#ffffff',
       }},
       // first group: circles; second group: rounded squares (shape as well as colour, so it reads in greyscale)
       { selector: 'node[slot="slot1"]', style: { 'background-color': COL_BLUE, shape: 'ellipse' } },
       { selector: 'node[slot="slot2"]', style: { 'background-color': COL_ORANGE, shape: 'round-rectangle' } },
-      { selector: 'node.focal', style: { 'border-width': 3, 'border-color': '#1c2330', 'font-size': () => LABEL_BASE.focal * labelScale(), 'font-weight': '700' } },
+      { selector: 'node.focal', style: { 'border-width': 2, 'border-color': '#1c2330', 'font-size': () => LABEL_BASE.focal * labelScale(), 'font-weight': '700' } },
       { selector: 'node.exterior', style: { 'background-color': '#aab4c0', 'font-size': () => LABEL_BASE.exterior * labelScale(), 'opacity': 0.75 } },
       { selector: 'node.filtered-out', style: { 'opacity': 0.15 } },
       { selector: 'edge', style: {
@@ -862,18 +871,18 @@ function computeOverviewTarget() {
   const items = [];
   s1.forEach(n => {
     const pos = App.overviewPositions.get(n.id) || { x: 0, y: 0 };
-    const size = 14 + Math.min(n.edges.length,10)*2;
-    items.push({ id: n.id, x: pos.x, y: pos.y, r: size/2, node: n, slot: 'slot1', size });
+    const size = 8 + Math.min(n.edges.length,10)*1.2;
+    items.push({ id: n.id, x: pos.x, y: pos.y, r: size/2 + 3, node: n, slot: 'slot1', size });
   });
   s2.forEach(n => {
     const pos = App.overviewPositions.get(n.id) || { x: 0, y: 0 };
-    const size = 14 + Math.min(n.edges.length,10)*2;
-    items.push({ id: n.id, x: pos.x, y: pos.y, r: size/2, node: n, slot: 'slot2', size });
+    const size = 8 + Math.min(n.edges.length,10)*1.2;
+    items.push({ id: n.id, x: pos.x, y: pos.y, r: size/2 + 3, node: n, slot: 'slot2', size });
   });
   declutterPositions(items, { padding: 8, maxDisplacement: 35 });
 
   items.forEach(it => {
-    const passes = wordPassesFilters(it.node, it.slot === 'slot1' ? 'w1' : 'w2');
+    const passes = wordShownByFilters(it.node, it.slot === 'slot1' ? 'w1' : 'w2');
     nodes.set(it.id, {
       data: { id: it.id, label: it.node.label, slot: it.slot, size: it.size },
       position: { x: it.x, y: it.y },
@@ -991,7 +1000,7 @@ function computeFocusTarget() {
   collocateItems.forEach(it => {
     if (it.fixed) {
       nodes.set(it.id, {
-        data: { id: focalNode.id, label: focalNode.label, slot: focalScope, size: 30 },
+        data: { id: focalNode.id, label: focalNode.label, slot: focalScope, size: 20 },
         position: { x: it.x, y: it.y },
         classes: 'focal'
       });
@@ -999,7 +1008,7 @@ function computeFocusTarget() {
     }
     const meta = collocateMeta.get(it.id);
     nodes.set(it.id, {
-      data: { id: meta.otherNode.id, label: meta.otherNode.label, slot: meta.otherNode.slot, size: 20 },
+      data: { id: meta.otherNode.id, label: meta.otherNode.label, slot: meta.otherNode.slot, size: 13 },
       position: { x: it.x, y: it.y },
       classes: ''
     });
@@ -1039,7 +1048,7 @@ function computeFocusTarget() {
   exteriorItems.forEach(it => {
     const passes = wordPassesFilters(it.node, focalScope==='slot1'?'w1':'w2');
     nodes.set(it.id, {
-      data: { id: it.id, label: it.node.label, slot: it.node.slot, size: 10 },
+      data: { id: it.id, label: it.node.label, slot: it.node.slot, size: 7 },
       position: { x: it.x, y: it.y },
       classes: 'exterior' + (passes ? '' : ' filtered-out')
     });
@@ -1086,8 +1095,9 @@ function applyGraph(target, animateRequested) {
     if (n && n.nonempty()) {
       n.data(spec.data);
       n.classes(spec.classes || '');
+      n.stop(true, true);
+      n.removeStyle('opacity');   // drop any fade-in leftover so class styles (e.g. filtered-out) apply
       if (doAnimate) {
-        n.stop(true, true);
         n.animate({ position: spec.position }, { duration: 450, easing: 'ease-in-out-cubic' });
       } else {
         n.position(spec.position);
@@ -1096,7 +1106,9 @@ function applyGraph(target, animateRequested) {
       const added = cy.add({ data: spec.data, position: spec.position, classes: spec.classes || '' });
       if (doAnimate) {
         added.style('opacity', 0);
-        added.animate({ style: { opacity: 1 } }, { duration: 450 });
+        // fade in, then hand opacity back to the stylesheet (a leftover inline 1 would hide filtered-out fading)
+        const finalOpacity = added.hasClass('filtered-out') ? 0.15 : added.hasClass('exterior') ? 0.75 : 1;
+        added.animate({ style: { opacity: finalOpacity } }, { duration: 450, complete: () => added.removeStyle('opacity') });
       }
     }
   });
@@ -1156,6 +1168,11 @@ function renderGraphBar() {
   if (App.focal) {
     html = `Partners of <strong class="${App.focal.slot}">${escapeHtml(App.focal.word)}</strong>. `
       + `The closer a word sits to the centre, the stronger the link. Click a line to read example sentences.`;
+  } else if (nFilters) {
+    const total = App.slot1.size + App.slot2.size;
+    const shown = Array.from(App.slot1.values()).filter(n => wordShownByFilters(n, 'w1')).length
+      + Array.from(App.slot2.values()).filter(n => wordShownByFilters(n, 'w2')).length;
+    html = `${shown} of ${total} words match the filters. Click any word to see its partners.`;
   } else {
     html = `All ${App.slot1.size + App.slot2.size} words. Click any word to see its partners.`;
   }
@@ -1194,6 +1211,15 @@ function renderDetailPanel(node, scope) {
     attrsHtml += `<div class="attr-row"><span class="k">${escapeHtml(pretty(type))}</span><span class="v">${escapeHtml(Array.from(set).join(', '))}</span></div>`;
   });
 
+  // pair tags: one line of chips under each partner, plus a count over all of this word's pairs
+  const pairTagsOf = r => Object.values(r.attrs.pair || {}).flat();
+  const pairTagCounts = new Map();
+  otherRows.forEach(r => pairTagsOf(r).forEach(t => pairTagCounts.set(t, (pairTagCounts.get(t) || 0) + 1)));
+  const pairTagSummary = Array.from(pairTagCounts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([t, n]) => `<span class="pair-attr-chip" title="${n} of ${nPartners} pair${nPartners === 1 ? '' : 's'}">${escapeHtml(t)}<span class="count">${n}</span></span>`)
+    .join('');
+
   // sort column defaults to whichever measure is currently used for distances,
   // until the person clicks a header; after that their choice persists
   const sortCol = App.collocateSort.col || App.metric;
@@ -1212,16 +1238,18 @@ function renderDetailPanel(node, scope) {
 
   const arrowFor = col => sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
 
-  const rowsHtml = sorted.map(r => {
+  const rowsHtml = sorted.map((r, i) => {
     const other = scope === 'slot1' ? r.word2 : r.word1;
     const w1 = scope === 'slot1' ? label : other;
     const w2 = scope === 'slot1' ? other : label;
-    return `<tr data-word="${escapeAttr(other)}" data-scope="${scope === 'slot1' ? 'slot2' : 'slot1'}">
+    const tags = pairTagsOf(r);
+    const cls = [i % 2 ? 'alt' : '', tags.length ? 'has-tags' : ''].join(' ').trim();
+    return `<tr class="${cls}" data-word="${escapeAttr(other)}" data-scope="${scope === 'slot1' ? 'slot2' : 'slot1'}">
       <td class="word" title="Show this word's partners">${escapeHtml(other)}</td>
       <td class="num">${r.sym == null ? '–' : r.sym.toFixed(2)}</td>
       <td class="num">${pullOf(r, scope) == null ? '–' : pullOf(r, scope).toFixed(2)}</td>
       <td class="num"><button type="button" class="btn small pair-view-btn" data-w1="${escapeAttr(w1)}" data-w2="${escapeAttr(w2)}" title="Read example sentences for this pair">Examples</button></td>
-    </tr>`;
+    </tr>` + (tags.length ? `<tr class="tag-row ${i % 2 ? 'alt' : ''}"><td colspan="4">${tags.map(t => `<span class="pair-tag-mini">${escapeHtml(t)}</span>`).join('')}</td></tr>` : '');
   }).join('');
 
   const th = (col, text, tip, extra = '') =>
@@ -1231,6 +1259,7 @@ function renderDetailPanel(node, scope) {
     <p class="detail-word">${escapeHtml(label)}</p>
     <p class="detail-slot ${scope}"><span class="swatch ${scope === 'slot1' ? 'circle' : 'square'}"></span>${escapeHtml(labelFor(scope))} · ${nPartners} partner${nPartners === 1 ? '' : 's'}</p>
     ${attrsHtml ? `<div class="section-label">Tags</div>${attrsHtml}` : ''}
+    ${pairTagSummary ? `<div class="section-label">Tags of its pairs</div><div class="pair-attrs">${pairTagSummary}</div>` : ''}
     <div class="section-label">Partners</div>
     <table class="collocate-table">
       <thead><tr>
@@ -1418,8 +1447,8 @@ function openPairDetail(word1, word2) {
   };
 
   let attrsHtml = '';
-  Object.entries(row.attrs.pair || {}).forEach(([type, val]) => {
-    attrsHtml += `<span class="pair-attr-chip">${escapeHtml(pretty(type))}: ${escapeHtml(val)}</span>`;
+  Object.entries(row.attrs.pair || {}).forEach(([type, vals]) => {
+    vals.forEach(val => { attrsHtml += `<span class="pair-attr-chip">${escapeHtml(pretty(type))}: ${escapeHtml(val)}</span>`; });
   });
 
   const key = word1.toLowerCase() + '|' + word2.toLowerCase();
@@ -1798,9 +1827,9 @@ function downloadCurrentCsv() {
   const lines = [headers.join(',')];
   App.rows.forEach(row => {
     const cells = [row.word1, row.word2, row.sym ?? '', row.asym ?? '', ...(hasAsym2 ? [row.asym2 ?? ''] : [])];
-    attrTypes.pair.forEach(t => cells.push(row.attrs.pair[t] || ''));
-    attrTypes.w1.forEach(t => cells.push(row.attrs.w1[t] || ''));
-    attrTypes.w2.forEach(t => cells.push(row.attrs.w2[t] || ''));
+    attrTypes.pair.forEach(t => cells.push((row.attrs.pair[t] || []).join(' | ')));
+    attrTypes.w1.forEach(t => cells.push((row.attrs.w1[t] || []).join(' | ')));
+    attrTypes.w2.forEach(t => cells.push((row.attrs.w2[t] || []).join(' | ')));
     lines.push(cells.map(c => csvEscape(String(c))).join(','));
   });
   downloadText('word_pairs.csv', lines.join('\n'));
