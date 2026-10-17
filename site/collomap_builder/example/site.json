@@ -1,0 +1,48 @@
+{
+  "site_name": "Collomap",
+  "dataset_title": "Adverb – final particle collocations (demo)",
+  "authors": "Lai, Kay",
+  "year": "2026",
+  "url": "",
+  "license": "Data: CC BY 4.0",
+  "source_url": "",
+  "about": "A small demonstration dataset of adverb + sentence-final particle pairs in Classical Chinese.\n\nScores are illustrative only.",
+  "group_names": {
+    "first": "Adverb",
+    "second": "Final particle"
+  },
+  "default_distance": "sym",
+  "default_spacing": "rank",
+  "sample_text": "豈不誠大丈夫哉。蓋有之矣，我未之見也。",
+  "lang": "en",
+  "font_family": "Helvetica, Arial, sans-serif",
+  "word_font_family": "'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', 'Source Han Sans TC', sans-serif",
+  "word_line_height": 1.8,
+  "font_size": 15,
+  "colors": {
+    "first": "#1a64a8",
+    "second": "#b4500a",
+    "accent": "#1a64a8"
+  },
+  "_font_note": "For Tibetan add e.g. \"font_files\": [\"fonts/NotoSansTibetan.ttf\"], \"word_font_family\": \"'Noto Sans Tibetan', sans-serif\" and \"word_line_height\": 2.3. Keys starting with _ are ignored.",
+  "columns": {
+    "Adverb": "word1",
+    "Particle": "word2",
+    "PPMI": "sym_score",
+    "DeltaP": "asym_score",
+    "Sentence": "text",
+    "Translation": "translation",
+    "Reference": "source_label"
+  },
+  "tags": {
+    "first": [
+      "Adverb type"
+    ],
+    "second": [
+      "Particle function"
+    ],
+    "pair": [
+      "Register"
+    ]
+  }
+}

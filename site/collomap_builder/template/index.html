@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Collomap – explore which words go together</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="no-data">
+
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="#" id="brand-link" aria-label="Collomap home">
+      <svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true"><line x1="9" y1="11" x2="21" y2="11" stroke="#9aa5b4" stroke-width="2"/><circle cx="8" cy="11" r="7" style="fill:var(--c1)"/><rect x="15" y="4" width="14" height="14" rx="3.5" style="fill:var(--c2)"/></svg>
+      <span id="site-name">Collomap</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#" id="nav-home">Home</a>
+      <a href="#" id="nav-words">Words</a>
+      <a href="#" id="nav-filters">Filters</a>
+      <a href="#" id="nav-download">Download</a>
+      <a href="#" id="nav-cite">Cite</a>
+      <a href="#" id="nav-help">Help</a>
+    </nav>
+    <div class="spacer"></div>
+    <button class="btn small" id="header-open" type="button">Open your own file…</button>
+    <button class="btn small" id="header-sample" type="button">Example data</button>
+    <input type="file" id="data-file" multiple accept=".csv,.xlsx,.xls,.txt,text/csv">
+  </div>
+</header>
+
+<div class="notice" id="notice" role="alert" hidden><div class="notice-text" id="notice-text"></div><button class="notice-close" id="notice-close" type="button" aria-label="Dismiss">×</button></div>
+
+
+<!-- Shown until some data is loaded -->
+<section id="welcome" class="welcome">
+  <div class="welcome-inner">
+    <h1>Which words go together?</h1>
+    <p class="lede">This page shows words that tend to appear side by side, for example which adjectives go with which nouns. Every word is a coloured shape, and a line joins two words that form a pair. Click a word to see its closest partners, then click a line to read example sentences.</p>
+    <div class="welcome-actions">
+      <button class="btn primary big" id="welcome-sample" type="button">Try the example</button>
+      <button class="btn big" id="welcome-open" type="button">Open your own file…</button>
+    </div>
+    <p class="hint">Excel (.xlsx) and CSV files both work. You can also drag a file onto this page.</p>
+
+    <ol class="steps">
+      <li><span class="num">1</span><h3>Pick a word</h3><p>Click any word in the picture. It moves to the middle and its partners gather around it.</p></li>
+      <li><span class="num">2</span><h3>Read the distances</h3><p>The closer a partner sits to the middle, the stronger its link to the word you picked.</p></li>
+      <li><span class="num">3</span><h3>Open a line</h3><p>Click the line between two words to read example sentences where they occur together.</p></li>
+    </ol>
+    <p class="own-data">Want to use your own word pairs? <a href="#" id="welcome-help">See what the file should look like</a>.</p>
+  </div>
+</section>
+
+<div class="layout" id="layout">
+  <!-- LEFT: find words, word lists, filters, display options, data info -->
+  <aside class="col left" id="left-pane" aria-label="Browse words">
+    <div class="pane-head">
+      <h2>Browse</h2>
+      <button class="pane-toggle" id="left-pane-toggle" type="button" title="Hide this panel" aria-label="Hide this panel">‹</button>
+    </div>
+    <div class="col-inner" id="left-pane-inner">
+
+      <div class="find-box">
+        <label for="word-search">Find a word</label>
+        <input type="search" id="word-search" placeholder="Type a word, then press Enter" autocomplete="off">
+      </div>
+
+      <div class="accordion" id="accordion-slot1">
+        <button class="accordion-header" type="button" data-target="slot1-body" aria-expanded="true"><span class="chevron">▾</span><span id="slot1-title">First word</span><span class="count" id="slot1-count"></span></button>
+        <div class="accordion-body" id="slot1-body"><div id="slot1-list" class="tag-list"></div></div>
+      </div>
+
+      <div class="accordion" id="accordion-slot2">
+        <button class="accordion-header" type="button" data-target="slot2-body" aria-expanded="true"><span class="chevron">▾</span><span id="slot2-title">Second word</span><span class="count" id="slot2-count"></span></button>
+        <div class="accordion-body" id="slot2-body"><div id="slot2-list" class="tag-list"></div></div>
+      </div>
+
+      <div class="accordion collapsed" id="accordion-filters">
+        <button class="accordion-header" type="button" data-target="filters-body" aria-expanded="false"><span class="chevron">▾</span>Filters<span class="badge" id="filters-badge" hidden>0</span></button>
+        <div class="accordion-body" id="filters-body"><div id="filter-panel"><p class="empty-note">Open some data to see filters.</p></div></div>
+      </div>
+
+      <div class="accordion collapsed" id="accordion-settings">
+        <button class="accordion-header" type="button" data-target="settings-body" aria-expanded="false"><span class="chevron">▾</span>Display options</button>
+        <div class="accordion-body" id="settings-body">
+          <div class="control-row" id="label-row">
+            <div class="control-label">What should the two groups of words be called?</div>
+            <input class="text-input" id="label-slot1" type="text" aria-label="Name for the first group of words" placeholder="First word">
+            <input class="text-input" id="label-slot2" type="text" aria-label="Name for the second group of words" placeholder="Second word">
+            <p class="help-text" style="margin:0;">For example “Adverb” and “Final particle”. This only changes the labels you see.</p>
+          </div>
+          <div class="control-row">
+            <div class="control-label">How are distances spread out?</div>
+            <div class="segmented" id="scale-toggle">
+              <button type="button" data-v="rank" class="active">Even steps</button>
+              <button type="button" data-v="raw">True scale</button>
+              <button type="button" data-v="log">Log scale</button>
+            </div>
+            <p class="help-text" id="scale-desc">Partners are spaced evenly, strongest first. Good for a tidy picture.</p>
+          </div>
+          <div class="control-row">
+            <div class="control-label">Animate when the picture changes</div>
+            <div class="segmented" id="animate-toggle">
+              <button type="button" data-v="on" class="active">On</button>
+              <button type="button" data-v="off">Off</button>
+            </div>
+            <div class="field-row">
+              <span>Switch it off automatically above</span>
+              <input type="number" id="animate-threshold" value="60" min="5" step="5" aria-label="Number of words above which animation switches off">
+              <span>words</span>
+            </div>
+            <p class="help-text" id="animate-status"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion collapsed" id="accordion-info">
+        <button class="accordion-header" type="button" data-target="info-body" aria-expanded="false"><span class="chevron">▾</span>About this data</button>
+        <div class="accordion-body" id="info-body">
+          <div id="info-about" hidden></div>
+          <div class="attr-row"><span class="k">Source</span><span class="v" id="info-name">–</span></div>
+          <div class="attr-row"><span class="k">Word pairs</span><span class="v" id="info-pairs">–</span></div>
+          <div class="attr-row"><span class="k" id="info-slot1-label">First word</span><span class="v" id="info-slot1-count">–</span></div>
+          <div class="attr-row"><span class="k" id="info-slot2-label">Second word</span><span class="v" id="info-slot2-count">–</span></div>
+          <div class="attr-row"><span class="k">Example sentences</span><span class="v" id="info-examples">–</span></div>
+          <div class="section-label">Tags in this data</div>
+          <div id="info-attrs"><p class="empty-note">Open some data to see details.</p></div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- CENTER: the picture -->
+  <main class="col center" id="center">
+    <div id="graph-wrap">
+      <div class="graph-bar" id="graph-bar" role="status" aria-live="polite">
+        <div class="msg" id="graph-bar-msg"></div>
+        <div class="bar-controls">
+        <div class="metric-wrap" id="metric-wrap" hidden>
+          <span id="metric-label">Distance shows:</span>
+          <div class="segmented" id="metric-toggle" role="group" aria-labelledby="metric-label">
+            <button type="button" data-v="asym" class="active" title="One-way pull: how strongly one word points to the other (direction matters)">One-way pull</button>
+            <button type="button" data-v="sym" title="Mutual strength: how tightly the two words are tied together, whichever way you read the pair">Mutual strength</button>
+          </div>
+        </div>
+        <button class="btn small" id="graph-clear-filters" type="button" hidden>Clear filters</button>
+        <button class="btn small" id="graph-back" type="button" hidden>← Back to all words</button>
+        </div>
+      </div>
+      <div id="cy-holder">
+        <div id="cy" aria-label="Picture of word pairs. Use the lists on the left to pick words with the keyboard."></div>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT: about the chosen word -->
+  <aside class="col right" id="right-pane" aria-label="Details">
+    <div class="pane-head">
+      <h2>Details</h2>
+      <button class="pane-toggle" id="right-pane-toggle" type="button" title="Hide this panel" aria-label="Hide this panel">›</button>
+    </div>
+    <div class="col-inner" id="detail-panel"></div>
+  </aside>
+</div>
+
+<section id="drawer" class="collapsed">
+  <button id="drawer-head" type="button" aria-expanded="false"><span class="arrow" id="drawer-arrow">▸</span>Try it on your own text <span class="sub">– mark the word pairs from this data in a passage you paste</span></button>
+  <div id="drawer-body">
+    <div class="col-a">
+      <label for="text-input" class="control-label" style="margin:0;">Paste a passage</label>
+      <textarea id="text-input" placeholder="Paste or type some text here."></textarea>
+      <div><button class="btn primary small" id="highlight-btn" type="button">Mark word pairs</button></div>
+    </div>
+    <div class="col-b">
+      <div class="control-label" style="margin:0;">Result</div>
+      <div id="highlight-output">Press “Mark word pairs” and the pairs found will be coloured here. Click a coloured word to jump to it.</div>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <span id="footer-license"></span>
+  <span class="spacer"></span>
+  <a href="#" id="footer-help-link">Help</a>
+  <span class="footer-sep">·</span>
+  <a href="#" id="footer-cite-link">How to cite</a>
+  <span class="footer-sep" id="footer-source-sep" hidden>·</span>
+  <a href="#" id="footer-source-link" target="_blank" rel="noopener" hidden>Source</a>
+</footer>
+
+<!-- Pair detail -->
+<div id="pair-modal-backdrop" class="modal-backdrop" style="display:none;">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Details for this word pair">
+    <button id="pair-modal-close" class="modal-close" type="button" aria-label="Close">✕</button>
+    <div id="pair-modal-body"></div>
+  </div>
+</div>
+
+<!-- Cite -->
+<div id="cite-modal-backdrop" class="modal-backdrop" style="display:none;">
+  <div class="modal" style="max-width:600px;" role="dialog" aria-modal="true" aria-label="How to cite">
+    <button id="cite-modal-close" class="modal-close" type="button" aria-label="Close">✕</button>
+    <h2>How to cite</h2>
+    <div class="cite-block" id="cite-block"></div>
+    <p class="help-text" id="cite-note"></p>
+    <button class="btn" id="cite-copy-btn" type="button">Copy citation</button>
+  </div>
+</div>
+
+<!-- Help -->
+<div id="help-modal-backdrop" class="modal-backdrop" style="display:none;">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Help">
+    <button id="help-modal-close" class="modal-close" type="button" aria-label="Close">✕</button>
+    <h2>Help</h2>
+    <div id="help-about" hidden></div>
+
+    <h3>How to read the picture</h3>
+    <ul>
+      <li>Each <strong>word</strong> is a shape. Blue circles are the first word of a pair; orange squares are the second word. <span id="help-rename">(You can rename these groups under “Display options”.)</span></li>
+      <li>At first you see <strong>all words</strong>. Words that have similar partners sit near each other.</li>
+      <li><strong>Click a word</strong> and it moves to the middle, with its partners around it. The closer a partner, the stronger the link. Faint grey words on the outside are other words of the same group that share some of those partners.</li>
+      <li><strong>Click a line</strong> to read example sentences for that pair (if the data has any).</li>
+      <li>To go back, press <strong>“Back to all words”</strong> or click an empty spot in the picture.</li>
+    </ul>
+
+    <h3>The two kinds of strength</h3>
+    <ul>
+      <li><strong>Mutual strength</strong> (technically “symmetric association”): how tightly the two words are tied together, whichever way round you read the pair. Higher means tighter.</li>
+      <li><strong>One-way pull</strong> (technically “asymmetric association”): a direction-sensitive score for how strongly one word of the pair points to the other. If the data has a score for each direction, the picture uses the one for the word you are looking at (click a word of the first group and it is the pull of that word on its partners; click a word of the second group and it is the pull the other way). Exactly which measure was used depends on whoever prepared the data.</li>
+    </ul>
+    <p>Use the “Distance shows” buttons above the picture to choose which of the two decides how far each partner sits from the middle.</p>
+
+    <div id="help-own-section">
+    <h3 id="help-own-data">Using your own data</h3>
+    <p>Prepare a table in Excel (or any spreadsheet program), with one row per word pair, then click <strong>“Open your own file…”</strong> or drag the file onto the page. Both <code>.xlsx</code> and <code>.csv</code> files work. If you save as CSV, choose <strong>“CSV UTF-8”</strong> so that Chinese and other non-English characters survive.</p>
+    <p>Column names matter; the first row must contain them:</p>
+    <table class="help-table">
+      <tr><th>Column</th><th>What goes in it</th></tr>
+      <tr><td><code>word1</code>, <code>word2</code></td><td>The two words of the pair. <em>Required.</em></td></tr>
+      <tr><td><code>sym_score</code></td><td>A number for the mutual strength of the pair (higher = stronger).</td></tr>
+      <tr><td><code>asym_score</code></td><td>A number for the one-way pull of the pair (from the first word towards the second).</td></tr>
+      <tr><td><code>asym_score_2</code></td><td>Optional. The one-way pull in the other direction (from the second word towards the first). Used when the second word is in focus; if left out, <code>asym_score</code> is used for both.</td></tr>
+      <tr><td><code>attr_w1_…</code></td><td>Optional tags about the first word, for example <code>attr_w1_domain</code>. Each tag column becomes a filter.</td></tr>
+      <tr><td><code>attr_w2_…</code></td><td>Optional tags about the second word.</td></tr>
+      <tr><td><code>attr_pair_…</code></td><td>Optional tags about the pair as a whole.</td></tr>
+    </table>
+    <div class="btn-row"><button class="btn small" id="dl-template-pairs" type="button">Download a template for word pairs</button></div>
+
+    <h3>Adding example sentences</h3>
+    <p>Example sentences go in a <em>second</em> table. You can open both files together (select both in the file dialog, or drag both onto the page).</p>
+    <table class="help-table">
+      <tr><th>Column</th><th>What goes in it</th></tr>
+      <tr><td><code>word1</code>, <code>word2</code></td><td>Which pair the sentence illustrates. <em>Required.</em></td></tr>
+      <tr><td><code>text</code></td><td>The sentence. <em>Required.</em></td></tr>
+      <tr><td><code>translation</code></td><td>Optional translation. Put the translated words in <code>trans1</code> and <code>trans2</code> to have them coloured to match.</td></tr>
+      <tr><td><code>source_label</code></td><td>Optional note on where the sentence comes from, e.g. “Analects 1.1”.</td></tr>
+      <tr><td><code>work</code>, <code>chapter</code>, <code>ctext_urn</code></td><td>Optional. Used to add a link to the passage on ctext.org.</td></tr>
+    </table>
+    <div class="btn-row"><button class="btn small" id="dl-template-examples" type="button">Download a template for example sentences</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="drop-overlay" hidden><div>Drop your file to open it</div></div>
+
+<script src="app.js"></script>
+</body>
+</html>
