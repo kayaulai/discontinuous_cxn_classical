@@ -61,6 +61,8 @@ dir.create(heatmap_dir, showWarnings = FALSE, recursive = TRUE)
  ```
 
 ```{r}
+confidence_level <- .95
+
 example_df <- read_parquet(parquet_path)
  
 measures_df <- read_csv(measures_path, show_col_types = FALSE) %>%
@@ -144,7 +146,7 @@ plot_corr_heatmap <- function(path) {
       x = "Head", y = "Layer"
     ) +
     coord_fixed() +
-    theme_minimal(base_size = 11) +
+    theme_minimal(base_size = 10) +
     theme(panel.grid = element_blank())
  
   out_path <- file.path(heatmap_dir, str_replace(basename(path), "\\.csv$", ".png"))
@@ -281,4 +283,9 @@ iwalk(detected_pairs, function(df, measure_name) {
 })
  
 detected_pairs
+```
+
+
+```{r}
+
 ```
