@@ -10,7 +10,7 @@ library(ggplot2)
 ```
 
 ```{r}  
-corr_dir <- "output/03_get_attention"
+corr_dir <- "output/04_get_attention"
  
 # All correlation files, matching e.g. corr_pmi_threshold_20_pearson.csv
 corr_files <- list.files(corr_dir, pattern = "^corr_.*\\.csv$", full.names = TRUE)
@@ -18,7 +18,7 @@ corr_files <- list.files(corr_dir, pattern = "^corr_.*\\.csv$", full.names = TRU
 # The ONE example-level parquet (word1, word2, sentence, label, and every
 # L<layer>_H<head>_i2j / _j2i attention channel) -- no association measure
 # column in it, since it covers all three measures at once.
-parquet_path <- "output/03_get_attention/attention_dataset.parquet"
+parquet_path <- "output/04_get_attention/attention_dataset.parquet"
  
 # The association-measure values, one row per pair, computed separately
 # (this is the file from the earlier corpus-linguistics step).
@@ -56,7 +56,7 @@ p_threshold <- 0.90  # "at least p% of the time"
 # themselves. Set FALSE to score every pair in the parquet.
 only_unlabeled_candidates <- TRUE
  
-out_dir <- "output/04_analyse_attention"
+out_dir <- "output/05_analyse_attention"
 heatmap_dir <- file.path(out_dir, "heatmaps")
 dir.create(heatmap_dir, showWarnings = FALSE, recursive = TRUE)
  ```

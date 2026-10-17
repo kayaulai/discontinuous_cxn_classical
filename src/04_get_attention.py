@@ -345,10 +345,10 @@ if __name__ == "__main__":
         batch_size=16,
         max_length=128,
     )
-    # save_table(df, f"../output/03_get_attention/attention_dataset.parquet")  # ~6 MB for 5299 real sentences
+    # save_table(df, f"../output/04_get_attention/attention_dataset.parquet")  # ~6 MB for 5299 real sentences
 
     pair_df = aggregate_by_pair(df)
-    pair_df.to_csv(f"../output/03_get_attention/attention_dataset_aggregated.csv") 
+    pair_df.to_csv(f"../output/04_get_attention/attention_dataset_aggregated.csv") 
     corr = correlate_with_association_measure(pair_df, method=METHOD)
     print(corr.head(20))
-    corr.to_csv(f"../output/03_get_attention/corr_{ASSOC_MEASURE_NAME}_threshold_{N_THRESHOLD}_{METHOD}.csv")  # ~6 MB for 5299 real sentences
+    corr.to_csv(f"../output/04_get_attention/corr_{ASSOC_MEASURE_NAME}_threshold_{N_THRESHOLD}_{METHOD}.csv")  # ~6 MB for 5299 real sentences

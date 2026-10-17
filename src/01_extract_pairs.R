@@ -46,7 +46,7 @@ getCombos = function(root, conllu_sent){
       !str_ends(.data$xpos, "属格") #exclude 之
       ) %>% pull(lemma)
 
-  list(sfp = sfp, dc = adv_conj)
+  list(sfp = sfp, dc = adv_conj, root = root$lemma)
 }
 
 getComboList = function(conllu_sents){
@@ -71,7 +71,8 @@ getRowsFromCombos = function(combos){
     mutate(docID = combos$docID,
            paragraphID = combos$paragraphID,
            sentenceID = combos$sentenceID,
-           sentence = combos$sentence)
+           sentence = combos$sentence,
+           root = combos$root)
 }
 
 

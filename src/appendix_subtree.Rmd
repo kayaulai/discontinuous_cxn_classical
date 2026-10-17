@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "Appendix: subtree-based method"
 output: html_notebook
 editor_options: 
   chunk_output_type: inline
@@ -14,14 +14,16 @@ library(tidyverse)
 library(tidycollo)
 library(udpipe)
 library(data.tree)
+library(here)
 
-
+source(here("src", "utils", "measures.R"))
 ```
 
 We don't need to change `comboDF`, fortunately! So let's just import it.
 
 ```{r}
-load("1_extract_measures.Rdata")
+combosDF = readRDS(here("output", "01_extract_pairs", "combosDF.rds"))
+selectedDF_exp1 = read_csv(here("output", "02_measures", "exp1_selected_df.csv"))
 ```
 
 # Getting a DF of combinations
@@ -39,11 +41,11 @@ getCombos = function(alpha){
   by = getBenjaminiYekutieli(measures_adv_root_df$p_fisher_yates_1tail, alpha = alpha)
   measures_adv_root_df = measures_adv_root_df %>%
     mutate(p_fisher_yates_reject = by$reject)
-  View(measures_adv_root_df %>% filter(!is.na(root) & !is.na(dc)) %>% arrange(p_fisher_yates_1tail))
-  measures_adv_root_df %>% select(root, dc, n, f_dc_not_root, f_root_not_dc, f_not_root_or_dc, or, p_fisher_yates, p_fisher_yates_1tail) %>% View
-  measures_adv_root_df %>% filter(!is.na(root), !is.na(dc), p_fisher_yates_reject) %>% select(root, dc, n, f_dc_not_root, f_root_not_dc, f_not_root_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject) %>% View
+  if(interactive()) View(measures_adv_root_df %>% filter(!is.na(root) & !is.na(dc)) %>% arrange(p_fisher_yates_1tail))
+  if(interactive()) measures_adv_root_df %>% select(root, dc, n, f_dc_not_root, f_root_not_dc, f_not_root_or_dc, or, p_fisher_yates, p_fisher_yates_1tail) %>% View
+  if(interactive()) measures_adv_root_df %>% filter(!is.na(root), !is.na(dc), p_fisher_yates_reject) %>% select(root, dc, n, f_dc_not_root, f_root_not_dc, f_not_root_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject) %>% View
   
-  measures_adv_root_df %>% filter(!is.na(root), !is.na(dc), p_fisher_yates_reject, DP_norm < .99) %>% select(root, dc, n, f_dc_not_root, f_root_not_dc, f_not_root_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject, DP_norm, pmi) %>% arrange(pmi) %>% View
+  if(interactive()) measures_adv_root_df %>% filter(!is.na(root), !is.na(dc), p_fisher_yates_reject, DP_norm < .99) %>% select(root, dc, n, f_dc_not_root, f_root_not_dc, f_not_root_or_dc, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject, DP_norm, pmi) %>% arrange(pmi) %>% View
     
   selected_adv_root_df = measures_adv_root_df %>% filter(!is.na(root), !is.na(dc), p_fisher_yates_reject, DP_norm < .99)
   
@@ -66,11 +68,11 @@ getCombos = function(alpha){
   by = getBenjaminiYekutieli(measures_advv_sfp_df$p_fisher_yates_1tail, alpha = alpha)
   measures_advv_sfp_df = measures_advv_sfp_df %>%
     mutate(p_fisher_yates_reject = by$reject)
-  View(measures_advv_sfp_df %>% filter(!is.na(sfp) & !is.na(advv)) %>% arrange(p_fisher_yates_1tail))
-  measures_advv_sfp_df %>% select(sfp, advv, n, f_advv_not_sfp, f_sfp_not_advv, f_not_sfp_or_advv, or, p_fisher_yates, p_fisher_yates_1tail) %>% View
-  measures_advv_sfp_df %>% filter(!is.na(sfp), !is.na(advv), p_fisher_yates_reject) %>% select(sfp, advv, n, f_advv_not_sfp, f_sfp_not_advv, f_not_sfp_or_advv, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject) %>% View
+  if(interactive()) View(measures_advv_sfp_df %>% filter(!is.na(sfp) & !is.na(advv)) %>% arrange(p_fisher_yates_1tail))
+  if(interactive()) measures_advv_sfp_df %>% select(sfp, advv, n, f_advv_not_sfp, f_sfp_not_advv, f_not_sfp_or_advv, or, p_fisher_yates, p_fisher_yates_1tail) %>% View
+  if(interactive()) measures_advv_sfp_df %>% filter(!is.na(sfp), !is.na(advv), p_fisher_yates_reject) %>% select(sfp, advv, n, f_advv_not_sfp, f_sfp_not_advv, f_not_sfp_or_advv, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject) %>% View
   
-  measures_advv_sfp_df %>% filter(!is.na(sfp), !is.na(advv), p_fisher_yates_reject, DP_norm < .99) %>% select(sfp, advv, n, f_advv_not_sfp, f_sfp_not_advv, f_not_sfp_or_advv, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject, DP_norm, pmi) %>% arrange(pmi) %>% View
+  if(interactive()) measures_advv_sfp_df %>% filter(!is.na(sfp), !is.na(advv), p_fisher_yates_reject, DP_norm < .99) %>% select(sfp, advv, n, f_advv_not_sfp, f_sfp_not_advv, f_not_sfp_or_advv, or, p_fisher_yates, p_fisher_yates_1tail, p_fisher_yates_reject, DP_norm, pmi) %>% arrange(pmi) %>% View
     
   selected_advv_sfp_df = measures_advv_sfp_df %>% filter(!is.na(sfp), !is.na(advv), p_fisher_yates_reject, DP_norm < .99)
   
@@ -89,7 +91,7 @@ getCombos = function(alpha){
     filter(!is.na(dc) & !is.na(sfp)) %>%
     group_by(dc, sfp) %>%
     count
-  write_excel_csv(final_pairs, paste0("final_pairs_", alpha, ".csv"))
+  write_excel_csv(final_pairs, here("output", "appendix_subtree", paste0("final_pairs_", alpha, ".csv")))
   final_pairs
 }
 
@@ -105,21 +107,21 @@ selectedDF_exp2.05_exp3_comparison = pairs_.05 %>%
   full_join(selectedDF_exp1,
             by = c("dc", "sfp"),
             suffix = c("_exp2", "_exp1"))
-write_excel_csv(selectedDF_exp2.05_exp3_comparison, paste0("selectedDF_exp2.05_exp3_comparison_", .05, ".csv"))
+write_excel_csv(selectedDF_exp2.05_exp3_comparison, here("output", "appendix_subtree", paste0("subtree_exp1_comparison_", .05, ".csv")))
 
 selectedDF_exp2.1_exp3_comparison = pairs_.1 %>% 
   filter(!is.na(dc), !is.na(sfp)) %>%
   full_join(selectedDF_exp1,
             by = c("dc", "sfp"),
             suffix = c("_exp2", "_exp1"))
-write_excel_csv(selectedDF_exp2.1_exp3_comparison, paste0("selectedDF_exp2.05_exp3_comparison_", .1, ".csv"))
+write_excel_csv(selectedDF_exp2.1_exp3_comparison, here("output", "appendix_subtree", paste0("subtree_exp1_comparison_", .1, ".csv")))
 
 selectedDF_exp2.2_exp3_comparison = pairs_.2 %>% 
   filter(!is.na(dc), !is.na(sfp)) %>%
   full_join(selectedDF_exp1,
             by = c("dc", "sfp"),
             suffix = c("_exp2", "_exp1"))
-write_excel_csv(selectedDF_exp2.2_exp3_comparison, paste0("selectedDF_exp2.05_exp3_comparison_", .2, ".csv"))
+write_excel_csv(selectedDF_exp2.2_exp3_comparison, here("output", "appendix_subtree", paste0("subtree_exp1_comparison_", .2, ".csv")))
 
 ```
 

@@ -1,0 +1,19 @@
+# Python dependencies for the active code in src/ and site/collomap_builder/.
+# Install with: pip install -r requirements.txt
+# Minimum versions are the ones the outputs in this repo were produced with.
+
+# src/04_get_attention.py, src/utils/data_classes.py
+torch>=2.7.1
+transformers>=4.55.0
+numpy>=2.4.4
+pandas>=2.2.2
+scipy>=1.17.1
+pyarrow>=16.1.0  # reading/writing .parquet
+tqdm>=4.66.5
+
+# site/collomap_builder/ (reading/writing .xlsx)
+openpyxl>=3.1.5
+
+# Optional: only for site/collomap_builder/test_built_site.py
+# (after installing, also run: playwright install chromium)
+# playwright

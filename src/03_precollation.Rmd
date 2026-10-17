@@ -14,12 +14,15 @@ library(tidyverse)
 library(tidycollo)
 library(data.tree)
 library(combinat)
+library(here)
+
+source(here("src", "utils", "measures.R"))
 ```
 
 We don't need to change `comboDF`, fortunately! So let's just import it.
 
 ```{r}
-load("1_extract_measures.Rdata")
+comboList = readRDS(here("output", "01_extract_pairs", "comboList.rds"))
 ```
 
 # Getting a DF of combinations
@@ -76,8 +79,8 @@ getMeasuresDFFiltered = function(combosDF, slot_1 = "sfp", slot_2 = "dc"){
   by = getBenjaminiYekutieli(measures_df$p_fisher_yates_attract)
   measures_df = measures_df %>%
     mutate(p_fisher_yates_reject = by$reject)
-  View(measures_df)
-  measures_df %>% filter(!is.na(glue("{slot_1}")), !is.na(glue("{slot_2}")), p_fisher_yates_reject, DP_norm < .99)
+  if(interactive()) View(measures_df)
+  measures_df %>% filter(!is.na(.data[[slot_1]]), !is.na(.data[[slot_2]]), p_fisher_yates_reject, DP_norm < .99)
 }
 
 selectedDF_dc = getMeasuresDFFiltered(combosDF_dc, "dc_1", "dc_2")
@@ -91,12 +94,12 @@ First, though, let's get the rows of the old `combosDF` that contain the extract
 ```{r}
 
 selectedDF_dc = selectedDF_dc %>% mutate(combo = paste0(dc_1, dc_2))
-selectedSFP_dc = selectedSFP_dc %>% mutate(combo = paste0(sfp_1, sfp_2))
+selectedDF_sfp = selectedDF_sfp %>% mutate(combo = paste0(sfp_1, sfp_2))
 
 extractedComboTypes_dc = selectedDF_dc %>%
   filter(!is.na(dc_1), !is.na(dc_2)) %>%
   pull(combo)
-extractedsfpomboTypes_sfp = selectedSFP_dc %>%
+extractedComboTypes_sfp = selectedDF_sfp %>%
   filter(!is.na(sfp_1), !is.na(sfp_2)) %>%
   pull(combo)
 
@@ -105,7 +108,7 @@ combosDF_dc = combosDF_dc %>%
   mutate(comboExtracted = combo %in% extractedComboTypes_dc)
 combosDF_sfp = combosDF_sfp %>%
   mutate(combo = paste0(sfp_1, sfp_2)) %>%
-  mutate(comboExtracted = combo %in% extractedsfpomboTypes_sfp)
+  mutate(comboExtracted = combo %in% extractedComboTypes_sfp)
 ```
 
 # Replacing original combosDF lines with collated adv/dc
@@ -128,7 +131,7 @@ for(entry in 1:length(comboListNew)){
     combosString = combos %>%
       apply(2, function(x) paste0(x, collapse = ""))
     combosAreCollo = combosString %>%
-      sapply(function(x) x %in% extractesfpomboTypes_sfp)
+      sapply(function(x) x %in% extractedComboTypes_sfp)
     comboListNew[[entry]]$sfp = comboListNew[[entry]]$sfp %>%
       setdiff(combos[,combosAreCollo] %>% as.vector %>% unique) %>%
       c(combosString[combosAreCollo])
@@ -157,19 +160,32 @@ combosDF = lapply(comboListNew, getRowsFromCombos) %>% bind_rows
 # Getting final results
 
 ```{r}
-selectedDF_exp3 = getMeasuresDFFiltered(combosDF, "dc", "sfp")
-selectedDF_exp3 = selectedDF_exp3 %>% filter(!is.na(dc), !is.na(sfp))
+selectedDF_exp2 = getMeasuresDFFiltered(combosDF, "dc", "sfp")
+selectedDF_exp2 = selectedDF_exp2 %>% filter(!is.na(dc), !is.na(sfp))
 ```
 
 # Exploring the results
 
 ```{r}
-selectedDF_exp1 = read_csv("C:\\Users\\kayau\\Documents\\GitHub\\discontinuous_cxn_classical\\selected_df.csv")
+selectedDF_exp1 = read_csv(here("output", "02_measures", "exp1_selected_df.csv"))
 
-selectedDF_exp1_exp3_comparison = selectedDF_exp3 %>% 
+selectedDF_exp1_exp2_comparison = selectedDF_exp2 %>%
   filter(!is.na(dc), !is.na(sfp)) %>%
   select(dc, sfp, n, pmi) %>%
   full_join(selectedDF_exp1,
             by = c("dc", "sfp"),
-            suffix = c("_exp3", "_exp1"))
+            suffix = c("_exp2", "_exp1"))
+```
+
+# Saving the results
+
+```{r}
+write_excel_csv(selectedDF_dc %>% filter(!is.na(dc_1), !is.na(dc_2)) %>% select(dc_1, dc_2, n, pmi),
+                here("output", "03_precollation", "exp2_collated_dc.csv"))
+write_excel_csv(selectedDF_sfp %>% filter(!is.na(sfp_1), !is.na(sfp_2)) %>% select(sfp_1, sfp_2, n, pmi),
+                here("output", "03_precollation", "exp2_collated_sfp.csv"))
+write_excel_csv(selectedDF_exp2 %>% select(dc, sfp, n, pmi, kld_norm_dc_cond_sfp, kld_norm_sfp_cond_dc),
+                here("output", "03_precollation", "exp2_selected_df.csv"))
+write_excel_csv(selectedDF_exp1_exp2_comparison,
+                here("output", "03_precollation", "exp1_exp2_comparison.csv"))
 ```
