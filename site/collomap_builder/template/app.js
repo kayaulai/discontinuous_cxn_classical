@@ -559,6 +559,12 @@ function refreshLabelSize() {
 }
 function markFitZoom() { if (App.cy) { App.refZoom = App.cy.zoom(); refreshLabelSize(); } }
 
+// Shapes, outlines and lines keep a fixed size on screen whatever the zoom or window size:
+// zooming in spreads the words apart instead of swelling the shapes, so labels get room.
+// 'size' / 'width' data are in screen pixels / SHAPE_PX.
+const SHAPE_PX = 1.25;
+const px = n => n / (App.cy ? App.cy.zoom() : 1);   // n screen pixels, in graph units
+
 function initCy() {
   App.cy = cytoscape({
     container: $('cy'),
@@ -571,21 +577,21 @@ function initCy() {
           'font-size': () => LABEL_BASE.normal * labelScale(),
           'color': '#1c2330',
           'text-valign': 'bottom',
-          'text-margin-y': 1,
+          'text-margin-y': () => px(2),
           'background-color': COL_BLUE,
-          'width': 'data(size)',
-          'height': 'data(size)',
-          'border-width': 1,
+          'width': ele => px(ele.data('size') * SHAPE_PX),
+          'height': ele => px(ele.data('size') * SHAPE_PX),
+          'border-width': () => px(1),
           'border-color': '#ffffff',
       }},
       // first group: circles; second group: rounded squares (shape as well as colour, so it reads in greyscale)
       { selector: 'node[slot="slot1"]', style: { 'background-color': COL_BLUE, shape: 'ellipse' } },
       { selector: 'node[slot="slot2"]', style: { 'background-color': COL_ORANGE, shape: 'round-rectangle' } },
-      { selector: 'node.focal', style: { 'border-width': 2, 'border-color': '#1c2330', 'font-size': () => LABEL_BASE.focal * labelScale(), 'font-weight': '700' } },
+      { selector: 'node.focal', style: { 'border-width': () => px(2), 'border-color': '#1c2330', 'font-size': () => LABEL_BASE.focal * labelScale(), 'font-weight': '700' } },
       { selector: 'node.exterior', style: { 'background-color': '#aab4c0', 'font-size': () => LABEL_BASE.exterior * labelScale(), 'opacity': 0.75 } },
       { selector: 'node.filtered-out', style: { 'opacity': 0.15 } },
       { selector: 'edge', style: {
-          'width': 'data(width)',
+          'width': ele => px(ele.data('width')),
           'line-color': '#9aa5b4',
           'target-arrow-shape': 'none',
           'curve-style': 'bezier',
@@ -597,7 +603,9 @@ function initCy() {
     wheelSensitivity: 0.25,
   });
 
-  App.cy.on('zoom', refreshLabelSize);
+  // sizes depend on the zoom, so restyle in the same frame (no flicker of shapes growing then
+  // shrinking); very large pictures restyle on the next frame instead, to stay responsive
+  App.cy.on('zoom', () => { if (App.cy.nodes().length <= 1500) App.cy.style().update(); else refreshLabelSize(); });
 
   App.cy.on('tap', 'node', evt => {
     const n = evt.target;
