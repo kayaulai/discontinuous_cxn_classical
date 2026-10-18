@@ -30,6 +30,7 @@ Each script in `src/` writes to the folder of the same name in `output/`.
 | 04 | `04_get_attention.py` | Extracts the attention weights of [`jihuai/bert-ancient-chinese`](https://huggingface.co/jihuai/bert-ancient-chinese) between the adverb and the particle (every layer and head, both directions) for each sentence. Averages them per pair and correlates each layer/head with an association measure | `attention_dataset*.parquet` / `.csv`; `corr_<measure>_threshold_<N>_<method>.csv` |
 | 05 | `05_analyse_attention.qmd` | **Experiment 3.** Draws the correlation heatmaps, regresses each measure on its 10 most correlated attention heads, and uses the fit to flag new candidate pairs | `heatmaps/*.png`, `detected_pairs_<measure>.csv` |
 | — | `appendix_subtree.Rmd` | **Appendix.** Subtree-based alternative: first merges adverbs with the root verbs they are attracted to, then tests the merged units against final particles, at α = .05, .1 and .2 | `final_pairs_<alpha>.csv`, `subtree_exp1_comparison_<alpha>.csv` |
+| — | `site_examples.R` | Collects the website's example sentences: every sentence containing a selected Experiment 1 or 2 pair, with the positions of the two words | `exp1_examples.csv`, `exp2_examples.csv` (in `output/site_examples/`) |
 
 Helper functions are in `src/utils/`: `trees.R` (dependency trees from CoNLL-U), `measures.R` (the Benjamini–Yekutieli procedure) and `data_classes.py` (example and dataset classes for step 04).
 

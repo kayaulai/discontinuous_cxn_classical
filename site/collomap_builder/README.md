@@ -69,15 +69,17 @@ Edit the Excel file, run the same command again, re-upload the folder.
 
 ## The site in this repo (`docs/`)
 `docs/` holds both experiments, published from that folder with GitHub Pages. `docs/index.html` is
-a hand-written page linking to the two. To rebuild them, run this from this folder:
+a hand-written page linking to the two. The example sentences come from `src/site_examples.R`
+(run it from the repo root after steps 01–03; it writes `output/site_examples/`). To rebuild the
+sites, run this from this folder:
 
     python convert_exp1.py ../../output/02_measures/exp1_measures_df.csv ../../output/02_measures/exp1_selected_df.csv --out-dir exp1
     python add_tags.py exp1/exp1_site_data.xlsx ../../output/02_measures/exp1_selected_df_tagged.csv
-    python build_site.py exp1/exp1_site_data_tagged.csv --config exp1/site_settings.json --out ../../docs/exp1 --bundle-libs
+    python build_site.py exp1/exp1_site_data_tagged.csv --examples ../../output/site_examples/exp1_examples.csv --config exp1/site_settings.json --out ../../docs/exp1 --bundle-libs
 
     python convert_exp2.py ../../output/03_precollation/exp2_selected_df.csv --out-dir exp2
     python add_tags.py exp2/exp2_site_data.xlsx ../../output/03_precollation/exp2_selected_df_tagged.csv
-    python build_site.py exp2/exp2_site_data_tagged.csv --config exp2/site_settings.json --out ../../docs/exp2 --bundle-libs
+    python build_site.py exp2/exp2_site_data_tagged.csv --examples ../../output/site_examples/exp2_examples.csv --config exp2/site_settings.json --out ../../docs/exp2 --bundle-libs
 
 The site's settings (title, about text, group names, default distance, colours, ...) live in
 `exp1/site_settings.json` and `exp2/site_settings.json`. Edit those by hand and rebuild. The

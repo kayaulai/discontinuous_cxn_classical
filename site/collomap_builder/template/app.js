@@ -396,17 +396,38 @@ function clearAllFilters() {
   refreshAll();
 }
 
+// Tag counts over the pairs on screen: all of them in the overview, the focused word's pairs
+// (the lines drawn) when a word is in focus. scope -> type -> Map(value -> number of pairs)
+function onScreenTagCounts() {
+  const rowIdxs = App.focal
+    ? ((App.focal.slot === 'slot1' ? App.slot1 : App.slot2).get(App.focal.word) || { edges: [] }).edges
+    : App.rows.map((_, i) => i);
+  const counts = { w1: {}, w2: {}, pair: {} };
+  rowIdxs.forEach(ri => {
+    ['w1', 'w2', 'pair'].forEach(scope => Object.entries(App.rows[ri].attrs[scope]).forEach(([type, vals]) => {
+      const m = counts[scope][type] ||= new Map();
+      vals.forEach(v => m.set(v, (m.get(v) || 0) + 1));
+    }));
+  });
+  return counts;
+}
+
 function renderFilterPanel() {
   const el = $('filter-panel');
   const scopes = [['w1', App.labels.slot1 + ' tags'], ['w2', App.labels.slot2 + ' tags'], ['pair', 'Pair tags']];
+  const shown = onScreenTagCounts();
   let groups = '';
   scopes.forEach(([scope, label]) => {
-    const types = Object.keys(App.attrSchema[scope]);
+    // only tags of on-screen pairs, plus any tag already selected (so it can be switched off)
+    const types = Object.keys(App.attrSchema[scope]).filter(type =>
+      (shown[scope][type] && shown[scope][type].size) || (App.filters[scope][type] && App.filters[scope][type].size));
     if (!types.length) return;
     groups += `<div class="filter-group"><div class="filter-group-label">${escapeHtml(label)}</div>`;
     types.forEach(type => {
+      const counts = new Map(shown[scope][type] || []);
+      (App.filters[scope][type] || new Set()).forEach(v => { if (!counts.has(v)) counts.set(v, 0); });
       // commonest tags first; ties in alphabetical order
-      const values = Array.from(App.attrSchema[scope][type])
+      const values = Array.from(counts)
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
       groups += `<div class="filter-type"><div class="filter-type-name">${escapeHtml(pretty(type))}</div><div class="filter-values">`;
       values.forEach(([v, count]) => {
@@ -429,7 +450,9 @@ function renderFilterPanel() {
     return;
   }
   el.innerHTML =
-    `<p class="help-text" style="margin-top:0;">Choose tags to show only the matching words. Other words fade out.</p>`
+    `<p class="help-text" style="margin-top:0;">Choose tags to show only the matching words. Other words fade out.`
+    + (App.focal ? ` Showing the tags of the pairs of <strong class="${App.focal.slot}">${escapeHtml(App.focal.word)}</strong>; the numbers count those pairs.` : '')
+    + `</p>`
     + (n ? `<button type="button" class="btn small" id="filters-clear" style="margin-bottom:16px;">Clear all filters</button>` : '')
     + groups
     + `<p class="help-text">Choosing several tags in the <em>same</em> row shows words that have <em>any</em> of them. Choosing tags in <em>different</em> rows shows only words that match <em>every</em> row.</p>`;
@@ -1200,6 +1223,7 @@ function renderGraph(animate = true) {
   }
   renderLegend();
   renderGraphBar();
+  renderFilterPanel();   // its tag list follows what is on screen
   applyGraph(App.focal ? computeFocusTarget() : computeOverviewTarget(), animate);
 }
 

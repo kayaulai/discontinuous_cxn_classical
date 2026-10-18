@@ -188,4 +188,6 @@ write_excel_csv(selectedDF_exp2 %>% select(dc, sfp, n, pmi, kld_norm_dc_cond_sfp
                 here("output", "03_precollation", "exp2_selected_df.csv"))
 write_excel_csv(selectedDF_exp1_exp2_comparison,
                 here("output", "03_precollation", "exp1_exp2_comparison.csv"))
+# per-sentence adverbs / particles after collation, for the site's example sentences
+saveRDS(comboListNew, here("output", "03_precollation", "comboListNew.rds"))
 ```
